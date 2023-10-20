@@ -51,15 +51,6 @@ def getDetectionBboxes(bboxes, max_H, max_W, det_size=(960, 960), bbox_type='nai
     return bboxes
 
 
-    # bboxes_ = []
-    # for i, bbox in enumerate(bboxes):
-    #     if any([WindowIoU(bbox, bbox_) > 0.7 for i_,bbox_ in enumerate(bboxes) if i!=i_]):
-    #         continue
-    #     bboxes_.append(bbox)
-    # print(len(bboxes), len(bboxes_))
-    # return bboxes_
-
-
 def isInsidePoint(bbox, point):
     xmin, ymin, xmax, ymax = bbox
     x, y = point
@@ -231,7 +222,7 @@ def xywh2xyxy(x):
 
 
 
-def non_max_suppression(prediction, conf_thres=0.25, iou_thres=0.45, classes=None, agnostic=False, multi_label=False,
+def non_max_suppression(prediction, conf_thres=0.25, iou_thres=0.45, classes=None, agnostic=False, multi_label=False, merge=False,
                         labels=()):
     """Runs Non-Maximum Suppression (NMS) on inference results
 
@@ -249,7 +240,7 @@ def non_max_suppression(prediction, conf_thres=0.25, iou_thres=0.45, classes=Non
     time_limit = 10.0  # seconds to quit after
     redundant = True  # require redundant detections
     multi_label &= nc > 1  # multiple labels per box (adds 0.5ms/img)
-    merge = False  # use merge-NMS
+    # merge = False  # use merge-NMS
 
     t = time.time()
     output = [torch.zeros((0, 6), device=prediction.device)] * prediction.shape[0]

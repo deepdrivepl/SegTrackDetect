@@ -9,6 +9,15 @@ from PIL import Image, ImageFont, ImageDraw
 
 
 
+def plot_mask(mask, image, random_color=False, alpha=0.4):
+    mask = cv2.merge((mask, mask, mask))
+    color = np.full(mask.shape, np.array([255, 144, 30]))
+    
+    mask = np.where(mask==255, color, image).astype(np.uint8) # mask > 0 ?
+    image_new = cv2.addWeighted(image, alpha, mask, 1 - alpha, 0) 
+    return image_new
+
+
 def plot_one_box(x, img, color=None, label=None, line_thickness=3, draw_label=True):
     tl = round(0.002 * (img.shape[0] + img.shape[1]) / 3) + 1  # line/font thickness
     color = color or [random.randint(0, 255) for _ in range(3)]
