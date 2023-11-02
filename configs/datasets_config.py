@@ -1,8 +1,8 @@
 ZeF20 = dict(
     cat2label = {'fish': 0},
-    train_list = "data/3DZeF20/train.txt",
-    val_list = "data/3DZeF20/val.txt",
-    test_list = "data/3DZeF20/test.txt",
+    train_list = "data/ZeF20/train.txt",
+    val_list = "data/ZeF20/val.txt",
+    test_list = "data/ZeF20/test.txt",
     seq_pos = -3,
     img_ext = "jpg"
 )

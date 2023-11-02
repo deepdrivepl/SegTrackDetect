@@ -1,3 +1,6 @@
+import cv2
+import numpy as np
+
 import torch
 from torchvision import transforms as T
 
@@ -19,7 +22,7 @@ def unet_postprocess(output, ori_shape, sigmoid_included=False, thresh=None):
         output = torch.where(output > thresh, 1.0, 0.0)
 
     output = 255 * output.detach().cpu().numpy().astype(np.uint8) 
-    output_fullres = cv2.resize(output, (ori_shape[1], ori_shape[2]))
+    output_fullres = cv2.resize(output, (ori_shape[1], ori_shape[0]))
     return output_fullres, output
 
 
@@ -32,7 +35,7 @@ def u2net_postprocess(output, ori_shape, sigmoid_included=True, thresh=0.5):
     if thresh:
         output = torch.where(output > thresh, 1.0, 0.0)
     output = 255 * output.detach().cpu().numpy().astype(np.uint8)
-    output_fullres = cv2.resize(output, (ori_shape[1], ori_shape[2]))
+    output_fullres = cv2.resize(output, (ori_shape[1], ori_shape[0]))
     return output_fullres, output
 
 
@@ -48,18 +51,18 @@ u2net = dict(
     thresh = 0.5,
     transform = roi_transform,
     sigmoid_included = True,
-    postprocess = unet_postprocess,
+    postprocess = u2net_postprocess,
 )
 
 
 unet = dict(
-    weights = "trained_models/trained_models/unet-r18_005_best_model_loss.pt",
+    weights = "trained_models/unet-r18_005_best_model_loss.pt",
     in_size = (160,256),
     thresh = None,
     args = None,
     transform = roi_transform,
     sigmoid_included = False,
-    postprocess = u2net_postprocess,
+    postprocess = unet_postprocess,
 
 )
 
