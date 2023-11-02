@@ -20,36 +20,7 @@ from SORT import Sort
 
 from utils.bboxes import getDetectionBboxes, getSlidingWindowBBoxes, NMS, non_max_suppression,scale_coords, xyxy2xywh, findBboxes, IBS
 from utils.general import create_directory, save_args, load_model
-from utils.drawing import plot_one_box, get_colors, denormalize_numpy, draw_text, plot_mask
-
-
-def make_vis(d0_fullres, roi_bboxes, trk_bboxes, det_bboxes, metadata, out_dir, frame_id):
-    
-    seq, view, fname = metadata['image_path'][0].split(os.sep)[-3:]
-    out_path = os.path.join(out_dir, seq, view, fname)
-    out_path_mask = out_path.replace(view, f'{view}-masks').replace('.jpg','.png')
-    os.makedirs(os.path.dirname(out_path), exist_ok=True)
-    os.makedirs(os.path.dirname(out_path_mask), exist_ok=True)
-    
-    frame = cv2.imread(metadata['image_path'][0])
-    frame = plot_mask(d0_fullres, frame)
-                
-    for roi_bbox in roi_bboxes:
-        frame = plot_one_box(list(map(int, roi_bbox)), frame, color=(200,0,0), label='ROI', line_thickness=4, draw_label=True)         
-    for trk_bbox in trk_bboxes:
-        frame = plot_one_box(list(map(int, trk_bbox)), frame, color=(0,200,0), label='KF', line_thickness=4, draw_label=True) 
-    for bbox_det in det_bboxes:
-        frame = plot_one_box(list(map(int, bbox_det)), frame, color=(0,0,180), label='CONCAT', line_thickness=4, draw_label=True)
-        
-    stats = ["FRAME  %03d" % (frame_id), 
-             "", 
-             "ROI  %02d" % (len(roi_bboxes)), 
-             "MOT  %02d" % (len(trk_bboxes)), 
-             "DET  %02d" % (len(det_bboxes))
-            ]
-    frame = draw_text(frame, "\n".join(stats), 20, 40, color=(255,255,255))
-    cv2.imwrite(out_path, frame)
-    cv2.imwrite(out_path_mask, d0_fullres)
+from utils.drawing import make_vis
                     
                 
         
@@ -109,20 +80,18 @@ if __name__ == '__main__':
     flist = sorted([os.path.join(cfg_ds['root_dir'], x.rstrip()) for x in open(cfg_ds[args.flist])])
     flist = [x for x in flist if 'imgT' in x]
     
-
     unique_sequences = sorted(list(set([x.split(os.sep)[cfg_ds["seq_pos"]] for x in flist])))
     print(unique_sequences)
     
     # inference
-    annotations = []
     for unique_sequence in unique_sequences:
         seq_flist = sorted([x for x in flist if x.split(os.sep)[cfg_ds["seq_pos"]]==unique_sequence])
-        frames = [int(os.path.basename(x).replace(f".{cfg_ds['img_ext']}", '')) for x in seq_flist]
 
         dataset = ROIDataset(seq_flist, cfg_roi["in_size"], cfg_roi["transform"])
         dataloader = DataLoader(dataset, batch_size=1, shuffle=False, num_workers=4)
         tracker = Sort(max_age = args.max_age, min_hits = args.min_hits, iou_threshold = args.iou_threshold, min_confidence = args.min_confidence)
 
+        annotations = []
         with torch.no_grad():
             for i, (img, metadata) in tqdm(enumerate(dataloader)):
 
@@ -205,5 +174,5 @@ if __name__ == '__main__':
                         }
                     )
         
-    with open(os.path.join(out_dir, 'results.json'), 'w', encoding='utf-8') as f:
-        json.dump(annotations, f, ensure_ascii=False, indent=4)
+        with open(os.path.join(out_dir, f'results-{unique_sequence}.json'), 'w', encoding='utf-8') as f:
+            json.dump(annotations, f, ensure_ascii=False, indent=4)

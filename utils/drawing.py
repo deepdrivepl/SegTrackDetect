@@ -59,3 +59,33 @@ def draw_text(frame_numpy, text, x, y, color=(250,0,0), font='JetBrainsMono-Extr
     draw.multiline_text((x, y), text, fill=color, stroke_fill=(0,0,0), stroke_width=3, font=font, spacing=0)
 
     return np.array(frame_PIL)
+
+
+
+def make_vis(d0_fullres, roi_bboxes, trk_bboxes, det_bboxes, metadata, out_dir, frame_id):
+    
+    seq, view, fname = metadata['image_path'][0].split(os.sep)[-3:]
+    out_path = os.path.join(out_dir, seq, view, fname)
+    out_path_mask = out_path.replace(view, f'{view}-masks').replace('.jpg','.png')
+    os.makedirs(os.path.dirname(out_path), exist_ok=True)
+    os.makedirs(os.path.dirname(out_path_mask), exist_ok=True)
+    
+    frame = cv2.imread(metadata['image_path'][0])
+    frame = plot_mask(d0_fullres, frame)
+                
+    for roi_bbox in roi_bboxes:
+        frame = plot_one_box(list(map(int, roi_bbox)), frame, color=(200,0,0), label='ROI', line_thickness=4, draw_label=True)         
+    for trk_bbox in trk_bboxes:
+        frame = plot_one_box(list(map(int, trk_bbox)), frame, color=(0,200,0), label='KF', line_thickness=4, draw_label=True) 
+    for bbox_det in det_bboxes:
+        frame = plot_one_box(list(map(int, bbox_det)), frame, color=(0,0,180), label='CONCAT', line_thickness=4, draw_label=True)
+        
+    stats = ["FRAME  %03d" % (frame_id), 
+             "", 
+             "ROI  %02d" % (len(roi_bboxes)), 
+             "MOT  %02d" % (len(trk_bboxes)), 
+             "DET  %02d" % (len(det_bboxes))
+            ]
+    frame = draw_text(frame, "\n".join(stats), 20, 40, color=(255,255,255))
+    cv2.imwrite(out_path, frame)
+    cv2.imwrite(out_path_mask, d0_fullres)
