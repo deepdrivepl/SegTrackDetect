@@ -21,6 +21,37 @@ from SORT import Sort
 from utils.bboxes import getDetectionBboxes, getSlidingWindowBBoxes, NMS, non_max_suppression,scale_coords, xyxy2xywh, findBboxes, IBS
 from utils.general import create_directory, save_args, load_model
 from utils.drawing import plot_one_box, get_colors, denormalize_numpy, draw_text, plot_mask
+
+
+def make_vis(d0_fullres, roi_bboxes, trk_bboxes, det_bboxes, metadata, out_dir, frame_id):
+    
+    seq, view, fname = metadata['image_path'][0].split(os.sep)[-3:]
+    out_path = os.path.join(out_dir, seq, view, fname)
+    out_path_mask = out_path.replace(view, f'{view}-masks').replace('.jpg','.png')
+    os.makedirs(os.path.dirname(out_path), exist_ok=True)
+    os.makedirs(os.path.dirname(out_path_mask), exist_ok=True)
+    
+    frame = cv2.imread(metadata['image_path'][0])
+    frame = plot_mask(d0_fullres, frame)
+                
+    for roi_bbox in roi_bboxes:
+        frame = plot_one_box(list(map(int, roi_bbox)), frame, color=(200,0,0), label='ROI', line_thickness=4, draw_label=True)         
+    for trk_bbox in trk_bboxes:
+        frame = plot_one_box(list(map(int, trk_bbox)), frame, color=(0,200,0), label='KF', line_thickness=4, draw_label=True) 
+    for bbox_det in det_bboxes:
+        frame = plot_one_box(list(map(int, bbox_det)), frame, color=(0,0,180), label='CONCAT', line_thickness=4, draw_label=True)
+        
+    stats = ["FRAME  %03d" % (frame_id), 
+             "", 
+             "ROI  %02d" % (len(roi_bboxes)), 
+             "MOT  %02d" % (len(trk_bboxes)), 
+             "DET  %02d" % (len(det_bboxes))
+            ]
+    frame = draw_text(frame, "\n".join(stats), 20, 40, color=(255,255,255))
+    cv2.imwrite(out_path, frame)
+    cv2.imwrite(out_path_mask, d0_fullres)
+                    
+                
         
         
 if __name__ == '__main__':
@@ -97,41 +128,21 @@ if __name__ == '__main__':
 
                 H_orig, W_orig = metadata['image_h'].item(), metadata['image_w'].item()
                 original_shape = (H_orig, W_orig)
-                
-                frame = cv2.imread(metadata['image_path'][0])
 
                 d0 = net_roi(img.to(device))
                 d0_fullres, d0 = cfg_roi["postprocess"](d0, original_shape, cfg_roi["sigmoid_included"], cfg_roi["thresh"])
-                
-                seq, view, fname = metadata['image_path'][0].split(os.sep)[-3:]
-                out_path = os.path.join(out_dir, seq, view, fname)
-                os.makedirs(os.path.dirname(out_path), exist_ok=True)
-
-                vis = plot_mask(d0_fullres, frame)
-                
-                sdir = os.path.dirname(out_path).split(os.sep)[-1]
-                os.makedirs(os.path.dirname(out_path.replace(sdir, f'{sdir}-masks')), exist_ok=True)
-                cv2.imwrite(out_path.replace(sdir, f'{sdir}-masks').replace('.jpg','.png'), d0_fullres) # find bboxes should be in lowres 
 
                 if args.dilate:
                     kernel = np.ones((args.k_size, args.k_size), np.uint8)
                     d0 = cv2.dilate(d0, kernel, iterations = args.iter)
-                # cv2.imwrite('test-dilate.png', d0)
                     
                 roi_bboxes = findBboxes(d0, original_shape, d0.shape)
-                
-                # vis ROI bboxes
-                for roi_bbox in roi_bboxes:
-                    vis = plot_one_box(list(map(int, roi_bbox)), vis, color=(200,0,0), label='ROI', line_thickness=4, draw_label=True)
 
                 trk_bboxes = np.empty((0,4))
                 trks = tracker.get_pred_locations()
                 if i >= args.frame_delay:
                     trk_bboxes = trks[:,:-1]
                     
-                # vis ROI bboxes
-                for trk_bbox in trk_bboxes:
-                    vis = plot_one_box(list(map(int, trk_bbox)), vis, color=(0,200,0), label='KF', line_thickness=4, draw_label=True) 
                 merged_bboxes = np.concatenate((roi_bboxes, trk_bboxes), axis=0)
 
                 bboxes_det = getDetectionBboxes(
@@ -142,19 +153,8 @@ if __name__ == '__main__':
                 )
                 bboxes_det = [x for x in bboxes_det if (x[2]-x[0]>0 and x[3]-x[1]>0)]
                 
-                # vis ROI bboxes
-                for bbox_det in bboxes_det:
-                    vis = plot_one_box(list(map(int, bbox_det)), vis, color=(0,0,180), label='CONCAT', line_thickness=4, draw_label=True)
-                    
-                    
-                stats = ["FRAME  %03d" % (i), 
-                         "", 
-                         "ROI  %02d" % (len(roi_bboxes)), 
-                         "MOT  %02d" % (len(trk_bboxes)), 
-                         "DET  %02d" % (len(bboxes_det))
-                        ]
-                vis = draw_text(vis, "\n".join(stats), 20, 40, color=(255,255,255))
-                cv2.imwrite(out_path, vis)
+                if args.debug:
+                    make_vis(d0_fullres, roi_bboxes, trk_bboxes, bboxes_det, metadata, out_dir, i)
 
                 det_dataset =  WindowDetectionDataset(metadata['image_path'][0], bboxes_det, cfg_det['in_size'])
                 det_dataloader = DataLoader(det_dataset, batch_size=len(det_dataset) if len(det_dataset)>0 else 1, shuffle=False, num_workers=4) # all windows in a single batch
