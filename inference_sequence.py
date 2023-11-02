@@ -14,9 +14,7 @@ from torch.utils.data import DataLoader
 
 from data_loader import SingleDetectionDataset, ROIDataset, WindowDetectionDataset
 
-from configs import DATASETS, DET_MODELS, ROI_MODELS
-
-from SORT import Sort
+from configs import DATASETS, DET_MODELS, ROI_MODELS, TRACKERS
 
 from utils.bboxes import getDetectionBboxes, getSlidingWindowBBoxes, NMS, non_max_suppression,scale_coords, xyxy2xywh, findBboxes, IBS
 from utils.general import create_directory, save_args, load_model
@@ -30,6 +28,7 @@ if __name__ == '__main__':
     # configs
     parser.add_argument('--roi_model', type=str, default="unet", choices=ROI_MODELS.keys())
     parser.add_argument('--det_model', type=str, default="yolov7_tiny", choices=DET_MODELS.keys())
+    parser.add_argument('--tracker', type=str, default="sort", choices=TRACKERS.keys())
     parser.add_argument('--ds', type=str, default="ZeF20", choices=DATASETS.keys())
     parser.add_argument('--roi_weights', type=str, help="overwrite ROI weights from config")
     parser.add_argument('--flist', type=str, default='test_list', choices=['test_list', 'val_list', 'train_list'])
@@ -52,10 +51,6 @@ if __name__ == '__main__':
     parser.add_argument('--vis_conf_th', type=float, default=0.3)
     # tracker
     parser.add_argument('--frame_delay', type=int, default=3)
-    parser.add_argument('--max_age', type=int, default=10)
-    parser.add_argument('--min_hits', type=int, default=1)
-    parser.add_argument('--iou_threshold', type=float, default=0.3)
-    parser.add_argument('--min_confidence', type=float, default=0.3)
     args = parser.parse_args()
     
     
@@ -74,6 +69,8 @@ if __name__ == '__main__':
     cfg_roi = ROI_MODELS[args.roi_model]
     net_roi = load_model(cfg_roi, device, weights=args.roi_weights if args.roi_weights is not None else None)
     
+    cfg_trk = TRACKERS[args.tracker]
+    trk_class = getattr(importlib.import_module(cfg_trk['module_name']), cfg_trk['class_name'])
     
     # get dataset
     cfg_ds = DATASETS[args.ds]
@@ -89,7 +86,8 @@ if __name__ == '__main__':
 
         dataset = ROIDataset(seq_flist, cfg_roi["in_size"], cfg_roi["transform"])
         dataloader = DataLoader(dataset, batch_size=1, shuffle=False, num_workers=4)
-        tracker = Sort(max_age = args.max_age, min_hits = args.min_hits, iou_threshold = args.iou_threshold, min_confidence = args.min_confidence)
+
+        tracker = (trk_class)(**cfg_trk['args'])
 
         annotations = []
         with torch.no_grad():
@@ -118,7 +116,7 @@ if __name__ == '__main__':
                     merged_bboxes, 
                     H_orig, W_orig, 
                     det_size=cfg_det['in_size'], 
-                    bbox_type='sorted'
+                    bbox_type=args.bbox_type
                 )
                 bboxes_det = [x for x in bboxes_det if (x[2]-x[0]>0 and x[3]-x[1]>0)]
                 
