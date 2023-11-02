@@ -119,9 +119,6 @@ if __name__ == '__main__':
                     bbox_type=args.bbox_type
                 )
                 bboxes_det = [x for x in bboxes_det if (x[2]-x[0]>0 and x[3]-x[1]>0)]
-                
-                if args.debug:
-                    make_vis(d0_fullres, roi_bboxes, trk_bboxes, bboxes_det, metadata, out_dir, i)
 
                 det_dataset =  WindowDetectionDataset(metadata['image_path'][0], bboxes_det, cfg_det['in_size'])
                 det_dataloader = DataLoader(det_dataset, batch_size=len(det_dataset) if len(det_dataset)>0 else 1, shuffle=False, num_workers=4) # all windows in a single batch
@@ -145,7 +142,8 @@ if __name__ == '__main__':
                             continue
 
                         pred[:,:4] = pred[:,:4] + det_metadata['translate'][si].to(device) # to the coordinates of the original image
-                        out[si] = IBS(det_metadata['bbox'][si].to(device), pred, H_orig, W_orig, th=10)
+                        
+                        # out[si] = IBS(det_metadata['bbox'][si].to(device), pred, H_orig, W_orig, th=10) # it filers correct detections !!!!
                         
                     if img_out is None:
                         img_out = torch.cat(out)
@@ -158,8 +156,11 @@ if __name__ == '__main__':
 
                 if args.second_nms:
                     img_out = NMS(img_out, iou_thres=args.iou_thresh, redundant=args.redundant, merge=True, max_det=args.max_det, agnostic=args.agnostic)
-                
+
                 tracker.update(img_out.detach().cpu().numpy()[:, :-1], trks)
+                
+                if args.debug:
+                    make_vis(d0_fullres, roi_bboxes, trk_bboxes, bboxes_det, img_out, metadata, out_dir, i,  args.vis_conf_th)
                 
                 img_out[:,:4] = xyxy2xywh(img_out[:,:4])
                 for p in img_out.tolist():
