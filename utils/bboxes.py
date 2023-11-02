@@ -28,15 +28,18 @@ def findBboxes(label, original_shape, current_shape):
     contours = cv2.findContours(label, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     contours = contours[0] if len(contours) == 2 else contours[1]
     
+    if len(contours) == 0:
+        return np.empty((0,4))
+    
     bboxes = []
-    for cntr in contours:
+    for i, cntr in enumerate(contours):
         x,y,w,h = cv2.boundingRect(cntr)
         xmin, ymin = (x/_W)*W, (y/_H)*H
         xmax, ymax = ((x+w)/_W)*W, ((y+h)/_H)*H
         
         bbox = [int(x) for x in [xmin,ymin,xmax,ymax]]
         bboxes.append(bbox)
-    return bboxes
+    return np.array(bboxes)
 
 
 def getDetectionBboxes(bboxes, max_H, max_W, det_size=(960, 960), bbox_type='naive'):
