@@ -65,8 +65,8 @@ def draw_text(frame_numpy, text, x, y, color=(250,0,0), font='JetBrainsMono-Extr
 def make_vis(d0_fullres, roi_bboxes, trk_bboxes, det_bboxes, img_out, metadata, out_dir, frame_id, vis_conf_th):
     
     seq, view, fname = metadata['image_path'][0].split(os.sep)[-3:]
-    out_path = os.path.join(out_dir, seq, view, fname)
-    out_path_mask = out_path.replace(view, f'{view}-masks').replace('.jpg','.png')
+    out_path = os.path.join(out_dir, seq, f'{view}-windows', fname)
+    out_path_mask = os.path.join(out_dir, seq,  f'{view}-masks', fname).replace('.jpg','.png')
     out_path_dets = os.path.join(out_dir, seq,  f'{view}-dets', fname)
     os.makedirs(os.path.dirname(out_path), exist_ok=True)
     os.makedirs(os.path.dirname(out_path_mask), exist_ok=True)
@@ -74,7 +74,7 @@ def make_vis(d0_fullres, roi_bboxes, trk_bboxes, det_bboxes, img_out, metadata, 
     
     frame = cv2.imread(metadata['image_path'][0])
     
-    if d0_fullres:
+    if d0_fullres is not None:
         frame = plot_mask(d0_fullres, frame)
     
     
@@ -97,7 +97,7 @@ def make_vis(d0_fullres, roi_bboxes, trk_bboxes, det_bboxes, img_out, metadata, 
     frame = draw_text(frame, "\n".join(stats), 20, 40, color=(255,255,255))
     cv2.imwrite(out_path, frame)
     
-    if d0_fullres:
+    if d0_fullres is not None:
         cv2.imwrite(out_path_mask, d0_fullres)
     
     for bbox_det in det_bboxes:
