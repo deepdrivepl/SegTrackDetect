@@ -13,6 +13,8 @@
 
 # python inference_sequence.py --out_dir debug/test-vis --flist test_list --debug
 
-python inference_sequence.py --out_dir metrics/val/roi_track --flist val_list --debug --second_nms --mode 'roi_track'
-python inference_sequence.py --out_dir metrics/val/roi --flist val_list --debug --second_nms --mode 'roi'
-python inference_sequence.py --out_dir metrics/val/track --flist val_list --debug --second_nms --mode 'track'
+python inference_sequence.py --out_dir metrics/val/roi_track --flist val_list --debug --second_nms --mode 'roi_track' --merge
+python inference_sequence.py --out_dir metrics/val/roi --flist val_list --debug --second_nms --mode 'roi' --merge
+python inference_sequence.py --out_dir metrics/val/track --flist val_list --debug --second_nms --mode 'track' --merge
+python inference_sequence.py --out_dir metrics/val/sw --flist val_list --debug --second_nms --mode 'sw' --merge
+python inference_sequence.py --out_dir metrics/val/sd --flist val_list --debug --second_nms --mode 'sd' --merge
