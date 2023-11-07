@@ -2,6 +2,7 @@ import argparse
 import os
 import importlib
 import json
+import time
 
 from glob import glob
 from tqdm import tqdm
@@ -100,6 +101,7 @@ if __name__ == '__main__':
         with torch.no_grad():
             for i, (img, metadata) in tqdm(enumerate(dataloader)):
 
+                start = time.time()
                 H_orig, W_orig = metadata['image_h'].item(), metadata['image_w'].item()
                 original_shape = (H_orig, W_orig)
 
@@ -107,6 +109,7 @@ if __name__ == '__main__':
                 d0_fullres = None
                 
                 if args.mode == 'sw':
+                    start = time.time()
                     bboxes_det = getSlidingWindowBBoxes(H_orig, W_orig, args.overlap_frac, det_size=cfg_det["in_size"])
                 else: # track, roi, roi_track
                     if args.mode == 'track' and i < args.frame_delay: # single det (for frame_delay frames) to initialize the tracker
@@ -130,18 +133,21 @@ if __name__ == '__main__':
                         out = out.detach().cpu().numpy()
                         trks = tracker.get_pred_locations()
                         tracker.update(out[:, :-1], trks)
-                        make_vis(d0_fullres, roi_bboxes, trk_bboxes, bboxes_det, out, metadata, out_dir, i,  args.vis_conf_th)
-
-                        out[:,:4] = xyxy2xywh(out[:,:4])
-                        for p in out.tolist():
+                        out_[:,:4] = xyxy2xywh(out[:,:4])
+                        end = time.time()
+                        
+                        for p in out_.tolist():
                             annotations.append(
                                 {
                                     "image_id": i,
+                                    "image_path": metadata['image_path'][0],
                                     "category_id": int(p[-1]),
                                     "bbox": [round(x, 3) for x in p[:4]],
                                     "score": round(p[4], 5),
+                                    "inference_time": end-start,
                                 }
                             )
+                        make_vis(d0_fullres, roi_bboxes, trk_bboxes, bboxes_det, out, metadata, out_dir, i,  args.vis_conf_th)
                         continue # do not run the window detection, just track for frame_delay frames 
 
                     elif 'roi' in args.mode: # predict ROIs
@@ -213,6 +219,7 @@ if __name__ == '__main__':
 
                     tracker.update(img_out.detach().cpu().numpy()[:, :-1], trks)
                 
+                end = time.time()
                 if args.debug:
                     make_vis(d0_fullres, roi_bboxes, trk_bboxes, bboxes_det, img_out, metadata, out_dir, i,  args.vis_conf_th)
                 
@@ -221,9 +228,11 @@ if __name__ == '__main__':
                     annotations.append(
                         {
                             "image_id": i,
+                            "image_path": metadata['image_path'][0],
                             "category_id": int(p[-1]),
                             "bbox": [round(x, 3) for x in p[:4]],
                             "score": round(p[4], 5),
+                            "inference_time": end-start,
                         }
                     )
         
