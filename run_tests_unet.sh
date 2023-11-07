@@ -9,8 +9,10 @@
 
 # python inference_track_roi.py --out_dir debug/final-test-old-no-thx2 --weights "trained_models/unet-r18_005_best_model_loss.pt"
 
-
-
 # python inference_sequence.py --out_dir debug/final-test-old-no-thx2-bboxes-included
 
-python inference_sequence.py --out_dir debug/test-root-dir --flist val_list
+# python inference_sequence.py --out_dir debug/test-vis --flist test_list --debug
+
+python inference_sequence.py --out_dir metrics/val/roi_track --flist val_list --debug --second_nms --mode 'roi_track'
+python inference_sequence.py --out_dir metrics/val/roi --flist val_list --debug --second_nms --mode 'roi'
+python inference_sequence.py --out_dir metrics/val/track --flist val_list --debug --second_nms --mode 'track'
