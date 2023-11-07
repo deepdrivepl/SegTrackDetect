@@ -1,3 +1,8 @@
 */__pycache__/*
 *__pycache__*
 *.ipynb_checkpoints*
+*.pt
+*.jpg
+*.pth
+*.cfg
+*.weights
