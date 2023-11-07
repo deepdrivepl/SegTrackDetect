@@ -44,13 +44,16 @@ if __name__ == '__main__':
     parser.add_argument('--max_det', type=int, default=500)
     parser.add_argument('--agnostic', default=False, action='store_true')
     # general
-    parser.add_argument('--mode', type=str, default='roi_track', choices=['roi', 'track', 'roi_track'])
+    parser.add_argument('--mode', type=str, default='roi_track', choices=['roi', 'track', 'roi_track', 'sw', 'sd'])
     parser.add_argument('--cpu', default=False, action='store_true')
     parser.add_argument('--out_dir', type=str, default='detections')
     parser.add_argument('--debug', default=False, action='store_true')
     parser.add_argument('--vis_conf_th', type=float, default=0.3)
     # tracker
     parser.add_argument('--frame_delay', type=int, default=3)
+    
+    # sliding window
+    parser.add_argument('--overlap_frac', type=float, default=0.05)
     args = parser.parse_args()
     
     
@@ -103,18 +106,10 @@ if __name__ == '__main__':
                 roi_bboxes, trk_bboxes, bboxes_det = np.empty((0,4)), np.empty((0,4)), np.empty((0,4))
                 d0_fullres = None
                 
-                if 'roi' in args.mode: # predict ROIs
-                    d0 = net_roi(img.to(device))
-                    d0_fullres, d0 = cfg_roi["postprocess"](d0, original_shape, cfg_roi["sigmoid_included"], cfg_roi["thresh"])
-
-                    if args.dilate:
-                        kernel = np.ones((args.k_size, args.k_size), np.uint8)
-                        d0 = cv2.dilate(d0, kernel, iterations = args.iter)
-
-                    roi_bboxes = findBboxes(d0, original_shape, d0.shape)
-                    
-                else: # single det (for frame_delay frames) to initialize the tracker
-                    if i < args.frame_delay:
+                if args.mode == 'sw':
+                    bboxes_det = getSlidingWindowBBoxes(H_orig, W_orig, args.overlap_frac, det_size=cfg_det["in_size"])
+                else: # track, roi, roi_track
+                    if args.mode == 'track' and i < args.frame_delay: # single det (for frame_delay frames) to initialize the tracker
                         print(i, args.frame_delay)
                         out = net_det(img.to(device))
                         out = cfg_det["postprocess"](out)
@@ -136,22 +131,43 @@ if __name__ == '__main__':
                         trks = tracker.get_pred_locations()
                         tracker.update(out[:, :-1], trks)
                         make_vis(d0_fullres, roi_bboxes, trk_bboxes, bboxes_det, out, metadata, out_dir, i,  args.vis_conf_th)
-                        continue # do not run the window detection, just track for frame_delay frames
-                    
-                if 'track' in args.mode:
-                    trks = tracker.get_pred_locations()
-                    if i >= args.frame_delay:
-                        trk_bboxes = trks[:,:-1]
-                    
-                merged_bboxes = np.concatenate((roi_bboxes, trk_bboxes), axis=0)
 
-                bboxes_det = getDetectionBboxes(
-                    merged_bboxes, 
-                    H_orig, W_orig, 
-                    det_size=cfg_det['in_size'], 
-                    bbox_type=args.bbox_type
-                )
-                bboxes_det = [x for x in bboxes_det if (x[2]-x[0]>0 and x[3]-x[1]>0)]
+                        out[:,:4] = xyxy2xywh(out[:,:4])
+                        for p in out.tolist():
+                            annotations.append(
+                                {
+                                    "image_id": i,
+                                    "category_id": int(p[-1]),
+                                    "bbox": [round(x, 3) for x in p[:4]],
+                                    "score": round(p[4], 5),
+                                }
+                            )
+                        continue # do not run the window detection, just track for frame_delay frames 
+
+                    elif 'roi' in args.mode: # predict ROIs
+                        d0 = net_roi(img.to(device))
+                        d0_fullres, d0 = cfg_roi["postprocess"](d0, original_shape, cfg_roi["sigmoid_included"], cfg_roi["thresh"])
+
+                        if args.dilate:
+                            kernel = np.ones((args.k_size, args.k_size), np.uint8)
+                            d0 = cv2.dilate(d0, kernel, iterations = args.iter)
+
+                        roi_bboxes = findBboxes(d0, original_shape, d0.shape)
+
+                    if 'track' in args.mode:
+                        trks = tracker.get_pred_locations()
+                        if i >= args.frame_delay:
+                            trk_bboxes = trks[:,:-1]
+
+                    merged_bboxes = np.concatenate((roi_bboxes, trk_bboxes), axis=0)
+
+                    bboxes_det = getDetectionBboxes(
+                        merged_bboxes, 
+                        H_orig, W_orig, 
+                        det_size=cfg_det['in_size'], 
+                        bbox_type=args.bbox_type
+                    )
+                    bboxes_det = [x for x in bboxes_det if (x[2]-x[0]>0 and x[3]-x[1]>0)]
 
                 det_dataset =  WindowDetectionDataset(metadata['image_path'][0], bboxes_det, cfg_det['in_size'])
                 det_dataloader = DataLoader(det_dataset, batch_size=len(det_dataset) if len(det_dataset)>0 else 1, shuffle=False, num_workers=4) # all windows in a single batch
