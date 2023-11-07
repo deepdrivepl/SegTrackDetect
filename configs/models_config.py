@@ -78,7 +78,7 @@ yolov7_w6 = dict(
 
 
 yolov7_tiny = dict(
-    weights = "trained_models/yolov7-tiny-300-best.torchscript.pt",
+    weights = "trained_models/yolov7-tiny-new-trainval-split-300-fixed-cropped-ds-best.torchscript.pt", #"trained_models/yolov7-tiny-new-trainval-split-300-best.torchscript.pt", #yolov7-tiny-300-best.torchscript.pt",
     in_size = (160,256),
     conf_thresh = 0.001,
     iou_thresh = 0.65,
