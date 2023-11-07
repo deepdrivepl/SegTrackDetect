@@ -108,9 +108,46 @@ if __name__ == '__main__':
                 roi_bboxes, trk_bboxes, bboxes_det = np.empty((0,4)), np.empty((0,4)), np.empty((0,4))
                 d0_fullres = None
                 
-                if args.mode == 'sw':
+                if args.mode == 'sd':
+                    out = net_det(img.to(device))
+                    out = cfg_det["postprocess"](out)
+                    out = non_max_suppression(
+                        out, 
+                        conf_thres = cfg_det['conf_thresh'], 
+                        iou_thres = cfg_det['iou_thresh'],
+                        multi_label = True,
+                        labels = [],
+                        merge = args.merge,
+                        agnostic = args.agnostic
+                    )[0]
+                    scale_coords(
+                        (metadata['unpadded_h'][0].item(), metadata['unpadded_w'][0].item()),
+                        out[:, :4],
+                        (metadata['image_h'][0].item(), metadata['image_w'][0].item())
+                    )
+                    out = out.detach().cpu().numpy()
+                    out_ = out.copy()
+                    out_[:,:4] = xyxy2xywh(out[:,:4])
+                    end = time.time()
+
+                    for p in out_.tolist():
+                        annotations.append(
+                            {
+                                "image_id": i,
+                                "image_path": metadata['image_path'][0],
+                                "category_id": int(p[-1]),
+                                "bbox": [round(x, 3) for x in p[:4]],
+                                "score": round(p[4], 5),
+                                "inference_time": end-start,
+                            }
+                        )
+                    make_vis(d0_fullres, roi_bboxes, trk_bboxes, bboxes_det, out, metadata, out_dir, i,  args.vis_conf_th)
+                    continue # do not run the window detection
+                    
+                elif args.mode == 'sw':
                     start = time.time()
                     bboxes_det = getSlidingWindowBBoxes(H_orig, W_orig, args.overlap_frac, det_size=cfg_det["in_size"])
+                    
                 else: # track, roi, roi_track
                     if args.mode == 'track' and i < args.frame_delay: # single det (for frame_delay frames) to initialize the tracker
                         print(i, args.frame_delay)
@@ -133,6 +170,8 @@ if __name__ == '__main__':
                         out = out.detach().cpu().numpy()
                         trks = tracker.get_pred_locations()
                         tracker.update(out[:, :-1], trks)
+                        
+                        out_ = out.copy()
                         out_[:,:4] = xyxy2xywh(out[:,:4])
                         end = time.time()
                         
