@@ -98,14 +98,14 @@ def make_vis(d0_fullres, roi_bboxes, trk_bboxes, det_bboxes, img_out, metadata, 
     
     for bbox_det in det_bboxes:
         frame_dets = plot_one_box(list(map(int, bbox_det)), frame_dets, color=(0,0,180), label='WINDOW', line_thickness=4, draw_label=True)
+    
+    img_out = img_out[img_out[:, -2] >= vis_conf_th]
     for det in img_out.tolist():
         xmin,ymin,xmax,ymax,conf,cls = det
-        if conf < vis_conf_th:
-            continue
         frame_dets = plot_one_box(list(map(int, [xmin,ymin,xmax,ymax])), frame_dets, color=(180,20,20), 
                              label=f'DET {int(conf*100)}', line_thickness=1, draw_label=True)
         
         
-    stats = ["FRAME  %03d" % (frame_id)]
+    stats = ["FRAME  %03d" % (frame_id), "", "DETS   %02d" % len(img_out.tolist())]
     frame_dets = draw_text(frame_dets, "\n".join(stats), 20, 40, color=(255,255,255))
     cv2.imwrite(out_path_dets, frame_dets)
