@@ -100,7 +100,9 @@ if __name__ == '__main__':
                 H_orig, W_orig = metadata['image_h'].item(), metadata['image_w'].item()
                 original_shape = (H_orig, W_orig)
 
-                roi_bboxes = np.empty((0,4))
+                roi_bboxes, trk_bboxes, bboxes_det = np.empty((0,4)), np.empty((0,4)), np.empty((0,4))
+                d0_fullres = None
+                
                 if 'roi' in args.mode: # predict ROIs
                     d0 = net_roi(img.to(device))
                     d0_fullres, d0 = cfg_roi["postprocess"](d0, original_shape, cfg_roi["sigmoid_included"], cfg_roi["thresh"])
@@ -124,7 +126,7 @@ if __name__ == '__main__':
                             labels = [],
                             merge = args.merge,
                             agnostic = args.agnostic
-                        )
+                        )[0]
                         scale_coords(
                             (metadata['unpadded_h'][0].item(), metadata['unpadded_w'][0].item()),
                             out[:, :4],
@@ -133,9 +135,9 @@ if __name__ == '__main__':
                         out = out.detach().cpu().numpy()
                         trks = tracker.get_pred_locations()
                         tracker.update(out[:, :-1], trks)
+                        make_vis(d0_fullres, roi_bboxes, trk_bboxes, bboxes_det, out, metadata, out_dir, i,  args.vis_conf_th)
                         continue # do not run the window detection, just track for frame_delay frames
                     
-                trk_bboxes = np.empty((0,4))
                 if 'track' in args.mode:
                     trks = tracker.get_pred_locations()
                     if i >= args.frame_delay:

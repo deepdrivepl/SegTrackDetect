@@ -73,7 +73,9 @@ def make_vis(d0_fullres, roi_bboxes, trk_bboxes, det_bboxes, img_out, metadata, 
     os.makedirs(os.path.dirname(out_path_dets), exist_ok=True)
     
     frame = cv2.imread(metadata['image_path'][0])
-    frame = plot_mask(d0_fullres, frame)
+    
+    if d0_fullres:
+        frame = plot_mask(d0_fullres, frame)
     
     
     for bbox_det in det_bboxes:
@@ -94,7 +96,9 @@ def make_vis(d0_fullres, roi_bboxes, trk_bboxes, det_bboxes, img_out, metadata, 
             ]
     frame = draw_text(frame, "\n".join(stats), 20, 40, color=(255,255,255))
     cv2.imwrite(out_path, frame)
-    cv2.imwrite(out_path_mask, d0_fullres)
+    
+    if d0_fullres:
+        cv2.imwrite(out_path_mask, d0_fullres)
     
     for bbox_det in det_bboxes:
         frame_dets = plot_one_box(list(map(int, bbox_det)), frame_dets, color=(0,0,180), label='WINDOW', line_thickness=4, draw_label=True)
