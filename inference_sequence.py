@@ -44,7 +44,7 @@ if __name__ == '__main__':
     parser.add_argument('--max_det', type=int, default=500)
     parser.add_argument('--agnostic', default=False, action='store_true')
     # general
-    parser.add_argument('--mode', type=str, default='roi', choices=['det', 'roi', 'sw', 'track'])
+    parser.add_argument('--mode', type=str, default='roi_track', choices=['roi', 'track', 'roi_track'])
     parser.add_argument('--cpu', default=False, action='store_true')
     parser.add_argument('--out_dir', type=str, default='detections')
     parser.add_argument('--debug', default=False, action='store_true')
@@ -75,17 +75,21 @@ if __name__ == '__main__':
     # get dataset
     cfg_ds = DATASETS[args.ds]
     flist = sorted([os.path.join(cfg_ds['root_dir'], x.rstrip()) for x in open(cfg_ds[args.flist])])
-    flist = [x for x in flist if 'imgT' in x]
+    # flist = [x for x in flist if 'imgT' in x]
     
     unique_sequences = sorted(list(set([x.split(os.sep)[cfg_ds["seq_pos"]] for x in flist])))
     print(unique_sequences)
     
     # inference
     for unique_sequence in unique_sequences:
-        seq_flist = sorted([x for x in flist if x.split(os.sep)[cfg_ds["seq_pos"]]==unique_sequence])
+        seq_flist = sorted([x for x in flist if x.split(os.sep)[cfg_ds["seq_pos"]]==unique_sequence])#[:200] # TEMP
 
-        dataset = ROIDataset(seq_flist, cfg_roi["in_size"], cfg_roi["transform"])
-        dataloader = DataLoader(dataset, batch_size=1, shuffle=False, num_workers=4)
+        if 'roi' in args.mode:
+            dataset = ROIDataset(seq_flist, cfg_roi["in_size"], cfg_roi["transform"])
+            dataloader = DataLoader(dataset, batch_size=1, shuffle=False, num_workers=4)
+        else:
+            dataset = SingleDetectionDataset(seq_flist, cfg_det["in_size"])
+            dataloader = DataLoader(dataset, batch_size=1, shuffle=False, num_workers=4)
 
         tracker = (trk_class)(**cfg_trk['args'])
 
@@ -96,19 +100,46 @@ if __name__ == '__main__':
                 H_orig, W_orig = metadata['image_h'].item(), metadata['image_w'].item()
                 original_shape = (H_orig, W_orig)
 
-                d0 = net_roi(img.to(device))
-                d0_fullres, d0 = cfg_roi["postprocess"](d0, original_shape, cfg_roi["sigmoid_included"], cfg_roi["thresh"])
+                roi_bboxes = np.empty((0,4))
+                if 'roi' in args.mode: # predict ROIs
+                    d0 = net_roi(img.to(device))
+                    d0_fullres, d0 = cfg_roi["postprocess"](d0, original_shape, cfg_roi["sigmoid_included"], cfg_roi["thresh"])
 
-                if args.dilate:
-                    kernel = np.ones((args.k_size, args.k_size), np.uint8)
-                    d0 = cv2.dilate(d0, kernel, iterations = args.iter)
+                    if args.dilate:
+                        kernel = np.ones((args.k_size, args.k_size), np.uint8)
+                        d0 = cv2.dilate(d0, kernel, iterations = args.iter)
+
+                    roi_bboxes = findBboxes(d0, original_shape, d0.shape)
                     
-                roi_bboxes = findBboxes(d0, original_shape, d0.shape)
-
+                else: # single det (for frame_delay frames) to initialize the tracker
+                    if i < args.frame_delay:
+                        print(i, args.frame_delay)
+                        out = net_det(img.to(device))
+                        out = cfg_det["postprocess"](out)
+                        out = non_max_suppression(
+                            out, 
+                            conf_thres = cfg_det['conf_thresh'], 
+                            iou_thres = cfg_det['iou_thresh'],
+                            multi_label = True,
+                            labels = [],
+                            merge = args.merge,
+                            agnostic = args.agnostic
+                        )
+                        scale_coords(
+                            (metadata['unpadded_h'][0].item(), metadata['unpadded_w'][0].item()),
+                            out[:, :4],
+                            (metadata['image_h'][0].item(), metadata['image_w'][0].item())
+                        )
+                        out = out.detach().cpu().numpy()
+                        trks = tracker.get_pred_locations()
+                        tracker.update(out[:, :-1], trks)
+                        continue # do not run the window detection, just track for frame_delay frames
+                    
                 trk_bboxes = np.empty((0,4))
-                trks = tracker.get_pred_locations()
-                if i >= args.frame_delay:
-                    trk_bboxes = trks[:,:-1]
+                if 'track' in args.mode:
+                    trks = tracker.get_pred_locations()
+                    if i >= args.frame_delay:
+                        trk_bboxes = trks[:,:-1]
                     
                 merged_bboxes = np.concatenate((roi_bboxes, trk_bboxes), axis=0)
 
@@ -150,14 +181,19 @@ if __name__ == '__main__':
                     else:
                         img_out = torch.cat((img_out, out), 0)
 
-                if img_out is None:
-                    tracker.update(np.empty((0, 5)), trks)
-                    continue
+                # if img_out is None:
+                #     tracker.update(np.empty((0, 5)), trks)
+                #     continue
 
                 if args.second_nms:
-                    img_out = NMS(img_out, iou_thres=args.iou_thresh, redundant=args.redundant, merge=True, max_det=args.max_det, agnostic=args.agnostic)
+                    img_out = NMS(img_out, iou_thres=cfg_det["iou_thresh"], redundant=args.redundant, merge=args.merge, max_det=args.max_det, agnostic=args.agnostic)
 
-                tracker.update(img_out.detach().cpu().numpy()[:, :-1], trks)
+                if 'track' in args.mode:
+                    if img_out is None:
+                        tracker.update(np.empty((0, 5)), trks)
+                        continue
+
+                    tracker.update(img_out.detach().cpu().numpy()[:, :-1], trks)
                 
                 if args.debug:
                     make_vis(d0_fullres, roi_bboxes, trk_bboxes, bboxes_det, img_out, metadata, out_dir, i,  args.vis_conf_th)
