@@ -79,7 +79,6 @@ if __name__ == '__main__':
     # get dataset
     cfg_ds = DATASETS[args.ds]
     flist = sorted([os.path.join(cfg_ds['root_dir'], x.rstrip()) for x in open(cfg_ds[args.flist])])
-    # flist = [x for x in flist if 'imgT' in x]
     
     unique_sequences = sorted(list(set([x.split(os.sep)[cfg_ds["seq_pos"]] for x in flist])))
     print(unique_sequences)
@@ -248,7 +247,7 @@ if __name__ == '__main__':
                 #     tracker.update(np.empty((0, 5)), trks)
                 #     continue
 
-                if args.second_nms:
+                if args.second_nms and img_out is not None:
                     img_out = NMS(img_out, iou_thres=cfg_det["iou_thresh"], redundant=args.redundant, merge=args.merge, max_det=args.max_det, agnostic=args.agnostic)
 
                 if 'track' in args.mode:
