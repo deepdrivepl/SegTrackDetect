@@ -29,7 +29,9 @@ def save_args(out_dir, args, fname="args.json"):
         
         
 def load_model(config, device, weights=None):
-    net = torch.jit.load(config['weights'] if weights is None else weights)
+    weights_path = config['weights'] if weights is None else weights
+    print(f"Loading weights: {os.path.basename(weights_path)}")
+    net = torch.jit.load(weights_path)
     net.to(device)
     net.eval()
     return net

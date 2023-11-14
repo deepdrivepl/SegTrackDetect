@@ -32,6 +32,7 @@ if __name__ == '__main__':
     parser.add_argument('--tracker', type=str, default="sort", choices=TRACKERS.keys())
     parser.add_argument('--ds', type=str, default="ZeF20", choices=DATASETS.keys())
     parser.add_argument('--roi_weights', type=str, help="overwrite ROI weights from config")
+    parser.add_argument('--det_weights', type=str, help="overwrite DT weights from config")
     parser.add_argument('--flist', type=str, default='test_list', choices=['test_list', 'val_list', 'train_list'])
     # ROI
     parser.add_argument('--dilate', default=False, action='store_true')
@@ -68,7 +69,7 @@ if __name__ == '__main__':
     device = torch.device('cuda:0') if torch.cuda.device_count() > 0 and not args.cpu else 'cpu'
     
     cfg_det = DET_MODELS[args.det_model]
-    net_det = load_model(cfg_det, device)
+    net_det = load_model(cfg_det, device, weights=args.det_weights if args.det_weights is not None else None)
 
     cfg_roi = ROI_MODELS[args.roi_model]
     net_roi = load_model(cfg_roi, device, weights=args.roi_weights if args.roi_weights is not None else None)
