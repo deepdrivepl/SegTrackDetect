@@ -5,6 +5,7 @@ ZeF20 = dict(
     val_list = "data/ZeF20/val-new-trainval-split.txt",
     test_list = "data/ZeF20/test.txt",
     seq_pos = -3,
+    sec_seq_pos = -2,
     img_ext = "jpg"
 )
 

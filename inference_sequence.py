@@ -80,12 +80,13 @@ if __name__ == '__main__':
     cfg_ds = DATASETS[args.ds]
     flist = sorted([os.path.join(cfg_ds['root_dir'], x.rstrip()) for x in open(cfg_ds[args.flist])])
     
-    unique_sequences = sorted(list(set([x.split(os.sep)[cfg_ds["seq_pos"]] for x in flist])))
+    unique_sequences = sorted(list(set([f'{x.split(os.sep)[cfg_ds["seq_pos"]]}/{x.split(os.sep)[cfg_ds["sec_seq_pos"]]}' for x in flist])))
     print(unique_sequences)
     
     # inference
     for unique_sequence in unique_sequences:
-        seq_flist = sorted([x for x in flist if x.split(os.sep)[cfg_ds["seq_pos"]]==unique_sequence])#[:200] # TEMP
+        seq1, seq2 = unique_sequence.split(os.sep)
+        seq_flist = sorted([x for x in flist if x.split(os.sep)[cfg_ds["seq_pos"]]==seq1 and x.split(os.sep)[cfg_ds["sec_seq_pos"]]==seq2])#[:200] # TEMP
 
         if 'roi' in args.mode:
             dataset = ROIDataset(seq_flist, cfg_roi["in_size"], cfg_roi["transform"])
@@ -267,5 +268,5 @@ if __name__ == '__main__':
                         }
                     )
         
-        with open(os.path.join(out_dir, f'results-{unique_sequence}.json'), 'w', encoding='utf-8') as f:
+        with open(os.path.join(out_dir, f'results-{seq1}-{seq2}.json'), 'w', encoding='utf-8') as f:
             json.dump(annotations, f, ensure_ascii=False, indent=4)
