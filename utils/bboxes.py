@@ -86,11 +86,34 @@ def WindowIoU(boxA, boxB):
     return iou
 
 
+def same_orientation(h_roi, w_roi, h_window, w_window):
+    if h_roi >= w_roi and h_window >= w_window:
+        return True
+    if h_roi < w_roi and h_window < w_window:
+        return True
+    return False
 
+
+def rotate(bbox_roi, det_size):
+    h_window, w_window = det_size
+    xmin, ymin, xmax, ymax = bbox_roi
+    h_roi, w_roi = ymax-ymin, xmax-xmin
     
+    if same_orientation(h_roi, w_roi, h_window, w_window):
+        return False
+    return True
 
+
+def rot90points(x, y, hw):
+    return y, hw[1] - 1 - x
+    
+    
 def getDetectionBbox(bbox,  max_H, max_W, det_size):
-    h,w = det_size
+    if rotate(bbox, det_size):
+        w,h = det_size
+    else:
+        h,w = det_size
+        
     xmin, ymin, xmax, ymax = bbox
     xc = (xmax+xmin)//2
     yc = (ymin+ymax)//2

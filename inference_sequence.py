@@ -17,11 +17,9 @@ from data_loader import SingleDetectionDataset, ROIDataset, WindowDetectionDatas
 
 from configs import DATASETS, DET_MODELS, ROI_MODELS, TRACKERS
 
-from utils.bboxes import getDetectionBboxes, getSlidingWindowBBoxes, NMS, non_max_suppression,scale_coords, xyxy2xywh, findBboxes, IBS
+from utils.bboxes import getDetectionBboxes, getSlidingWindowBBoxes, NMS, non_max_suppression,scale_coords, xyxy2xywh, findBboxes, IBS, rot90points
 from utils.general import create_directory, save_args, load_model
 from utils.drawing import make_vis
-                    
-                
         
         
 if __name__ == '__main__':
@@ -220,7 +218,6 @@ if __name__ == '__main__':
 
                 img_out = torch.empty((0, 6))
                 for j, (img_det, det_metadata) in enumerate(det_dataloader):
-                    
                     out = net_det(img_det.to(device))
                     out = cfg_det["postprocess"](out)
                     out = non_max_suppression(
@@ -235,7 +232,15 @@ if __name__ == '__main__':
                     for si, pred in enumerate(out):
                         if len(pred) == 0:
                             continue
-
+                        
+                        if det_metadata['rotation'][si].item():
+                            h_window, w_window = det_metadata['shape'][si]
+                            xmin_, ymax_ = rot90points(pred[:,0], pred[:,1], [w_window.item(),h_window.item()])
+                            xmax_, ymin_ = rot90points(pred[:,2], pred[:,3], [w_window.item(),h_window.item()])
+                            pred[:,0] = xmin_
+                            pred[:,1] = ymin_
+                            pred[:,2] = xmax_
+                            pred[:,3] = ymax_
                         pred[:,:4] = pred[:,:4] + det_metadata['translate'][si].to(device) # to the coordinates of the original image
                         
                         # out[si] = IBS(det_metadata['bbox'][si].to(device), pred, H_orig, W_orig, th=10) # it filers correct detections !!!!
