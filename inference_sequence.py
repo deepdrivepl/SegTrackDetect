@@ -80,6 +80,7 @@ if __name__ == '__main__':
     flist = sorted([os.path.join(cfg_ds['root_dir'], x.rstrip()) for x in open(cfg_ds[args.flist])])
     
     unique_sequences = sorted(list(set([f'{x.split(os.sep)[cfg_ds["seq_pos"]]}/{x.split(os.sep)[cfg_ds["sec_seq_pos"]]}' for x in flist])))
+    # unique_sequences = [x for x in unique_sequences if '03' in x and 'imgF' in x]
     print(unique_sequences)
     
     # inference
@@ -211,12 +212,19 @@ if __name__ == '__main__':
                         det_size=cfg_det['in_size'], 
                         bbox_type=args.bbox_type
                     )
-                    bboxes_det = [x for x in bboxes_det if (x[2]-x[0]>0 and x[3]-x[1]>0)]
+                    bboxes_roi = np.array([x[1] for x in bboxes_det])
+                    bboxes_det = np.array([x[0] for x in bboxes_det])
+                      
+                    indices = np.where(((bboxes_det[:,2]-bboxes_det[:,0])) > 0 & ((bboxes_det[:,3]-bboxes_det[:,1]) > 0))[0]
+                    # [x for x in bboxes_det if (x[2]-x[0]>0 and x[3]-x[1]>0)] # TODO restore this line later
+                    bboxes_roi = bboxes_roi[indices, :]
+                    bboxes_det = bboxes_det[indices, :]
 
                 det_dataset =  WindowDetectionDataset(metadata['image_path'][0], bboxes_det, cfg_det['in_size'])
                 det_dataloader = DataLoader(det_dataset, batch_size=len(det_dataset) if len(det_dataset)>0 else 1, shuffle=False, num_workers=4) # all windows in a single batch
 
                 img_out = torch.empty((0, 6))
+                win_out = torch.empty((0, 4))
                 for j, (img_det, det_metadata) in enumerate(det_dataloader):
                     out = net_det(img_det.to(device))
                     out = cfg_det["postprocess"](out)
@@ -229,10 +237,17 @@ if __name__ == '__main__':
                         merge = args.merge,
                         agnostic = args.agnostic
                     )
+                    
                     for si, pred in enumerate(out):
                         if len(pred) == 0:
                             continue
-                        
+                            
+                        win_out = torch.cat((
+                            win_out,
+                            det_metadata['bbox'][si].repeat(len(pred),1)
+                        ))
+
+                        # pred[:,:4] = pred[:,:4]*det_metadata['resize'][si].to(device)
                         if det_metadata['rotation'][si].item():
                             h_window, w_window = det_metadata['shape'][si]
                             xmin_, ymax_ = rot90points(pred[:,0], pred[:,1], [w_window.item(),h_window.item()])
@@ -242,16 +257,18 @@ if __name__ == '__main__':
                             pred[:,2] = xmax_
                             pred[:,3] = ymax_
                         pred[:,:4] = pred[:,:4] + det_metadata['translate'][si].to(device) # to the coordinates of the original image
-                        
                         # out[si] = IBS(det_metadata['bbox'][si].to(device), pred, H_orig, W_orig, th=10) # it filers correct detections !!!!
-                        
+                    # print(det_metadata['bbox'])    
                     if not img_out.numel():
                         img_out = torch.cat(out)
                     else:
                         img_out = torch.cat((img_out, out), 0)
 
+                # print(img_out.shape)
+                # print(win_out.shape)
+                # exit()
                 if args.second_nms and img_out is not None:
-                    img_out = NMS(img_out, iou_thres=cfg_det["iou_thresh"], redundant=args.redundant, merge=args.merge, max_det=args.max_det, agnostic=args.agnostic)
+                    img_out, win_out = NMS(img_out, win_out.to(device), iou_thres=cfg_det["iou_thresh"], redundant=args.redundant, merge=args.merge, max_det=args.max_det, agnostic=args.agnostic)
                     
                 if 'track' in args.mode:
                     tracker.update(img_out.detach().cpu().numpy()[:, :-1], trks)
@@ -262,13 +279,14 @@ if __name__ == '__main__':
                     make_vis(d0_fullres, roi_bboxes, trk_bboxes, bboxes_det, img_out.detach().cpu().numpy(), metadata, out_dir, i,  args.vis_conf_th)
                 
                 img_out[:,:4] = xyxy2xywh(img_out[:,:4])
-                for p in img_out.tolist():
+                for p, w in zip(img_out.tolist(), win_out.tolist()):
                     annotations.append(
                         {
                             "image_id": i,
                             "image_path": metadata['image_path'][0],
                             "category_id": int(p[-1]),
                             "bbox": [round(x, 3) for x in p[:4]],
+                            "window_bbox": list(map(int, w)),
                             "score": round(p[4], 5),
                             "inference_time": end-start,
                         }
