@@ -55,7 +55,7 @@ def getDetectionBboxes(bboxes, max_H, max_W, det_size=(960, 960), bbox_type='nai
 
 
 def isInsidePoint(bbox, point):
-    xmin, ymin, xmax, ymax = bbox
+    xmin, ymin, xmax, ymax = bbox[0]
     x, y = point
     if xmin<=x<=xmax and ymin<=y<=ymax:
         return True
@@ -123,7 +123,7 @@ def getDetectionBbox(bbox,  max_H, max_W, det_size):
 
     xmax = min(xmin+w, max_W)
     ymax = min(ymin+h, max_H)
-    return [xmin,ymin,xmax,ymax]
+    return ([xmin,ymin,xmax,ymax], list(bbox)) # tuple(det_bbox, roi_bbox)
 
                 
         
@@ -211,7 +211,7 @@ def box_iou(box1, box2):
 
 
 
-def NMS(prediction, iou_thres,  redundant=True, merge=False, max_det=500, agnostic=False):
+def NMS(prediction, windows, iou_thres,  redundant=True, merge=False, max_det=500, agnostic=False):
     # https://github.com/WongKinYiu/PyTorch_YOLOv4/blob/master/utils/general.py
     # output = [torch.zeros(0, 6)] * len(prediction)
     x = prediction.clone()
@@ -233,7 +233,7 @@ def NMS(prediction, iou_thres,  redundant=True, merge=False, max_det=500, agnost
             i = i[iou.sum(1) > 1]  # require redundancy
 
         # output[xi] = x[i]
-    return x[i] #output
+    return x[i], windows[i]  #output
 
 
 
