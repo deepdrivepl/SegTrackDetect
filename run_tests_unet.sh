@@ -34,7 +34,36 @@
 # python inference_sequence.py --out_dir metrics/val-fixed-seq-empty-added-test-rotate/sd --flist val_list --debug --second_nms --mode 'sd' --merge --det_weights 'trained_models/yolov7-tiny-new-trainval-split-300-fixed-cropped-ds-empty-added-best.torchscript.pt'
 
 
-python inference_sequence.py --out_dir metrics/val-fixed-seq-empty-added-test-rotate-IBS/track-fix-2 --flist val_list --debug --second_nms --mode 'track' --merge --det_weights 'trained_models/yolov7-tiny-new-trainval-split-300-fixed-cropped-ds-empty-added-best.torchscript.pt'
+# python inference_sequence.py --out_dir metrics/val-fixed-seq-empty-added-test-rotate-IBS/track-fix-2 --flist val_list --debug --second_nms --mode 'track' --merge --det_weights 'trained_models/yolov7-tiny-new-trainval-split-300-fixed-cropped-ds-empty-added-best.torchscript.pt'
 
 
-python inference_sequence.py --out_dir metrics/val-fixed-seq-empty-added-test-rotate-IBS/roi-fix-2 --flist val_list --debug --second_nms --mode 'roi' --merge --det_weights 'trained_models/yolov7-tiny-new-trainval-split-300-fixed-cropped-ds-empty-added-best.torchscript.pt'
+# python inference_sequence.py --out_dir metrics/val-fixed-seq-empty-added-test-rotate-IBS/roi-fix-2 --flist val_list --debug --second_nms --mode 'roi' --merge --det_weights 'trained_models/yolov7-tiny-new-trainval-split-300-fixed-cropped-ds-empty-added-best.torchscript.pt'
+
+
+# python inference_sequence.py --out_dir metrics/val-fixed-seq-empty-added-test-rotate-IBS-online/track --flist val_list --debug --second_nms --mode 'track' --merge --det_weights 'trained_models/yolov7-tiny-new-trainval-split-300-fixed-cropped-ds-empty-added-best.torchscript.pt'
+# python inference_sequence.py --out_dir metrics/val-fixed-seq-empty-added-test-rotate-IBS-online/roi --flist val_list --debug --second_nms --mode 'roi' --merge --det_weights 'trained_models/yolov7-tiny-new-trainval-split-300-fixed-cropped-ds-empty-added-best.torchscript.pt'
+# python inference_sequence.py --out_dir metrics/val-fixed-seq-empty-added-test-rotate-IBS-online/roi_track --flist val_list --debug --second_nms --mode 'roi_track' --merge --det_weights 'trained_models/yolov7-tiny-new-trainval-split-300-fixed-cropped-ds-empty-added-best.torchscript.pt'
+# python inference_sequence.py --out_dir metrics/val-fixed-seq-empty-added-test-rotate-IBS-online/sw --flist val_list --debug --second_nms --mode 'sw' --merge --det_weights 'trained_models/yolov7-tiny-new-trainval-split-300-fixed-cropped-ds-empty-added-best.torchscript.pt'
+# python inference_sequence.py --out_dir metrics/val-fixed-seq-empty-added-test-rotate-IBS-online/sd --flist val_list --debug --second_nms --mode 'sd' --merge --det_weights 'trained_models/yolov7-tiny-new-trainval-split-300-fixed-cropped-ds-empty-added-best.torchscript.pt'
+
+
+python inference_sequence.py --out_dir metrics/val-fixed-seq-empty-added-test-rotate-IBS-online-single-matrix/track --flist val_list --second_nms --mode 'track' --merge --det_weights 'trained_models/yolov7-tiny-new-trainval-split-300-fixed-cropped-ds-empty-added-best.torchscript.pt'
+python inference_sequence.py --out_dir metrics/val-fixed-seq-empty-added-test-rotate-IBS-online-single-matrix/roi --flist val_list --second_nms --mode 'roi' --merge --det_weights 'trained_models/yolov7-tiny-new-trainval-split-300-fixed-cropped-ds-empty-added-best.torchscript.pt'
+python inference_sequence.py --out_dir metrics/val-fixed-seq-empty-added-test-rotate-IBS-online-single-matrix/roi_track --flist val_list --second_nms --mode 'roi_track' --merge --det_weights 'trained_models/yolov7-tiny-new-trainval-split-300-fixed-cropped-ds-empty-added-best.torchscript.pt'
+python inference_sequence.py --out_dir metrics/val-fixed-seq-empty-added-test-rotate-IBS-online-single-matrix/sw --flist val_list --second_nms --mode 'sw' --merge --det_weights 'trained_models/yolov7-tiny-new-trainval-split-300-fixed-cropped-ds-empty-added-best.torchscript.pt'
+python inference_sequence.py --out_dir metrics/val-fixed-seq-empty-added-test-rotate-IBS-online-single-matrix/sd --flist val_list --second_nms --mode 'sd' --merge --det_weights 'trained_models/yolov7-tiny-new-trainval-split-300-fixed-cropped-ds-empty-added-best.torchscript.pt'
+
+
+python inference_sequence_same_window_check.py --out_dir metrics/val-fixed-seq-empty-added-test-rotate-IBS-online-single-matrix-same-win/track --flist val_list --second_nms --mode 'track' --merge --det_weights 'trained_models/yolov7-tiny-new-trainval-split-300-fixed-cropped-ds-empty-added-best.torchscript.pt'
+python inference_sequence_same_window_check.py --out_dir metrics/val-fixed-seq-empty-added-test-rotate-IBS-online-single-matrix-same-win/roi --flist val_list --second_nms --mode 'roi' --merge --det_weights 'trained_models/yolov7-tiny-new-trainval-split-300-fixed-cropped-ds-empty-added-best.torchscript.pt'
+python inference_sequence_same_window_check.py --out_dir metrics/val-fixed-seq-empty-added-test-rotate-IBS-online-single-matrix-same-win/roi_track --flist val_list --second_nms --mode 'roi_track' --merge --det_weights 'trained_models/yolov7-tiny-new-trainval-split-300-fixed-cropped-ds-empty-added-best.torchscript.pt'
+python inference_sequence_same_window_check.py --out_dir metrics/val-fixed-seq-empty-added-test-rotate-IBS-online-single-matrix-same-win/sw --flist val_list --second_nms --mode 'sw' --merge --det_weights 'trained_models/yolov7-tiny-new-trainval-split-300-fixed-cropped-ds-empty-added-best.torchscript.pt'
+python inference_sequence_same_window_check.py --out_dir metrics/val-fixed-seq-empty-added-test-rotate-IBS-online-single-matrix-same-win/sd --flist val_list --second_nms --mode 'sd' --merge --det_weights 'trained_models/yolov7-tiny-new-trainval-split-300-fixed-cropped-ds-empty-added-best.torchscript.pt'
+
+
+
+python inference_sequence_conf_iou_area.py --out_dir metrics/val-fixed-seq-empty-added-test-rotate-IBS-online-single-matrix-conf-area-iou/track --flist val_list --second_nms --mode 'track' --merge --det_weights 'trained_models/yolov7-tiny-new-trainval-split-300-fixed-cropped-ds-empty-added-best.torchscript.pt'
+python inference_sequence_conf_iou_area.py --out_dir metrics/val-fixed-seq-empty-added-test-rotate-IBS-online-single-matrix-conf-area-iou/roi --flist val_list --second_nms --mode 'roi' --merge --det_weights 'trained_models/yolov7-tiny-new-trainval-split-300-fixed-cropped-ds-empty-added-best.torchscript.pt'
+python inference_sequence_conf_iou_area.py --out_dir metrics/val-fixed-seq-empty-added-test-rotate-IBS-online-single-matrix-conf-area-iou/roi_track --flist val_list --second_nms --mode 'roi_track' --merge --det_weights 'trained_models/yolov7-tiny-new-trainval-split-300-fixed-cropped-ds-empty-added-best.torchscript.pt'
+python inference_sequence_conf_iou_area.py --out_dir metrics/val-fixed-seq-empty-added-test-rotate-IBS-online-single-matrix-conf-area-iou/sw --flist val_list --second_nms --mode 'sw' --merge --det_weights 'trained_models/yolov7-tiny-new-trainval-split-300-fixed-cropped-ds-empty-added-best.torchscript.pt'
+python inference_sequence_conf_iou_area.py --out_dir metrics/val-fixed-seq-empty-added-test-rotate-IBS-online-single-matrix-conf-area-iou/sd --flist val_list --second_nms --mode 'sd' --merge --det_weights 'trained_models/yolov7-tiny-new-trainval-split-300-fixed-cropped-ds-empty-added-best.torchscript.pt'
