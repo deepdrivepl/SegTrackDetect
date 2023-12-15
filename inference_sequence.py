@@ -17,9 +17,93 @@ from data_loader import SingleDetectionDataset, ROIDataset, WindowDetectionDatas
 
 from configs import DATASETS, DET_MODELS, ROI_MODELS, TRACKERS
 
-from utils.bboxes import getDetectionBboxes, getSlidingWindowBBoxes, NMS, non_max_suppression,scale_coords, xyxy2xywh, findBboxes, IBS, rot90points
+from utils.bboxes import getDetectionBboxes, getSlidingWindowBBoxes, NMS, non_max_suppression,scale_coords, xyxy2xywh, findBboxes, IBS, rot90points,box_iou
 from utils.general import create_directory, save_args, load_model
 from utils.drawing import make_vis
+
+
+
+def filter_dets(windows, detections, th=0.7):
+    filtered_detections, filtered_windows = torch.empty((0,6)), torch.empty((0,4))
+    
+    unique_windows = torch.unique(windows, dim=0)
+    for w, unique_window in enumerate(unique_windows):
+        ind_win = torch.unique(torch.where(windows==unique_window)[0])
+        ind_notwin = torch.unique(torch.where(windows!=unique_window)[0])
+        window_dets = detections[ind_win,:]
+        other_dets = detections[ind_notwin,:]
+        
+        intersection_maxs = torch.min(other_dets[:, None, 2:4], unique_window.unsqueeze(0)[:, 2:4]) # xmax, ymax
+        intersection_mins = torch.max(other_dets[:, None, :2], unique_window.unsqueeze(0)[:, :2]) # xmin, ymin
+        intersections = torch.flatten(torch.cat((intersection_mins, intersection_maxs), dim=2), start_dim=0, end_dim=1)
+        intersections[(intersections[:,2] - intersections[:,0] < 0) | (intersections[:,3] - intersections[:,1] < 0)] = 0
+
+        ious = box_iou(intersections, window_dets[:,:4])
+        to_del = torch.where(ious > th)[1]
+        dets_filtered = window_dets[[x for x in range(window_dets.shape[0]) if x not in to_del],:]
+        filtered_detections = torch.cat((filtered_detections, dets_filtered.to(filtered_detections.device)))
+        filtered_detections = torch.unique(filtered_detections, dim=0)
+        
+        filtered_windows = torch.cat((filtered_windows.to(unique_window.device), unique_window.repeat(dets_filtered.shape[0], 1)))
+        
+        # avoid filtering "same detection" twice (same objects)
+        to_del_orig = []
+        for r,row in enumerate(detections):
+            if row.tolist() in to_del.tolist():
+                to_del_orig.append(r)
+                
+        detections = detections[[x for x in range(detections.shape[0]) if x not in to_del_orig],:]
+        windows = windows[[x for x in range(windows.shape[0]) if x not in to_del_orig],:]
+    return filtered_windows, filtered_detections   
+
+
+
+def filter_dets_single_matrix(windows, bboxes, th=0.7):
+    unique_windows = torch.unique(windows, dim=0)
+    
+    
+    intersection_maxs = torch.min(bboxes[:, None, 2:4], unique_windows[:, 2:4]) # xmax, ymax
+    intersection_mins = torch.max(bboxes[:, None, :2], unique_windows[:, :2]) # xmin, ymin
+    intersections = torch.cat((intersection_mins, intersection_maxs), dim=2)
+    intersections[(intersections[:,:,2] - intersections[:,:,0] < 0) | (intersections[:,:,3] - intersections[:,:,1] < 0)] = 0 # no common area
+    
+    # check later
+    # # detections from window = 0
+    # for i, unique_window in enumerate(unique_windows):
+    #     win_ind = torch.unique(torch.where(windows==unique_window)[0])
+    #     intersections[win_ind, i, :] = 0
+    # # print(intersections.shape, bboxes.shape)
+    
+    ious = torch.empty((len(bboxes), len(unique_windows), len(bboxes)))
+    for i in range(intersections.shape[1]):
+        ious[:,i,...] = box_iou(intersections[:,i,:], bboxes[:,:4])
+        
+    for i in range(bboxes.shape[0]): # a detection cannot be removed because of itself
+        ious[i,:,i] = 0
+    
+    #print(ious)
+    to_del = torch.nonzero(ious > th)
+    ious = ious[ious > th]
+
+    to_del = torch.hstack((to_del, ious.unsqueeze(-1)))
+    to_del = to_del[to_del[:, -1].sort(descending=True)[1]] # (N, 4)
+    #print(to_del)
+    
+    to_del_ids = []
+    for i in range(to_del.shape[0]):
+        if to_del[i, 0].item() in to_del_ids:
+            #print(f'Cause already deleted {to_del[i, 0]}')
+            continue
+        if to_del[i, 2].item() in to_del_ids:
+            #print(f'Detection already deleted {to_del[i, 2]}')
+            continue
+        to_del_ids.append(int(to_del[i, 2].item()))
+        #print(f'Delete {to_del[i, 2]} because of {to_del[i, 0]}, iou: {to_del[i, 3]}')
+    bboxes_filtered = bboxes[[x for x in range(bboxes.shape[0]) if x not in to_del_ids],:]
+    windows_filtered = windows[[x for x in range(windows.shape[0]) if x not in to_del_ids],:]
+    # print(bboxes_filtered)
+    return windows_filtered, bboxes_filtered
+    
         
         
 if __name__ == '__main__':
@@ -78,9 +162,8 @@ if __name__ == '__main__':
     # get dataset
     cfg_ds = DATASETS[args.ds]
     flist = sorted([os.path.join(cfg_ds['root_dir'], x.rstrip()) for x in open(cfg_ds[args.flist])])
-    
     unique_sequences = sorted(list(set([f'{x.split(os.sep)[cfg_ds["seq_pos"]]}/{x.split(os.sep)[cfg_ds["sec_seq_pos"]]}' for x in flist])))
-    # unique_sequences = [x for x in unique_sequences if '03' in x and 'imgF' in x]
+    # unique_sequences = [x for x in unique_sequences if '03' in x and 'imgT' in x] # and 'imgF' in x]
     print(unique_sequences)
     
     # inference
@@ -153,6 +236,9 @@ if __name__ == '__main__':
                         print(i, args.frame_delay)
                         out = net_det(img.to(device))
                         out = cfg_det["postprocess"](out)
+                        # print(out.shape)
+                        # print(out[:,:10,:])
+                        # exit()
                         out = non_max_suppression(
                             out, 
                             conf_thres = cfg_det['conf_thresh'], 
@@ -212,14 +298,13 @@ if __name__ == '__main__':
                         det_size=cfg_det['in_size'], 
                         bbox_type=args.bbox_type
                     )
-                    bboxes_roi = np.array([x[1] for x in bboxes_det])
-                    bboxes_det = np.array([x[0] for x in bboxes_det])
+                    bboxes_roi = np.array([x[1] for x in bboxes_det]).astype(np.int32)
+                    bboxes_det = np.array([x[0] for x in bboxes_det]).astype(np.int32)
                       
-                    indices = np.where(((bboxes_det[:,2]-bboxes_det[:,0])) > 0 & ((bboxes_det[:,3]-bboxes_det[:,1]) > 0))[0]
+                    indices = np.nonzero(((bboxes_det[:,2]-bboxes_det[:,0]) > 0) & ((bboxes_det[:,3]-bboxes_det[:,1]) > 0))[0]
                     # [x for x in bboxes_det if (x[2]-x[0]>0 and x[3]-x[1]>0)] # TODO restore this line later
                     bboxes_roi = bboxes_roi[indices, :]
                     bboxes_det = bboxes_det[indices, :]
-
                 det_dataset =  WindowDetectionDataset(metadata['image_path'][0], bboxes_det, cfg_det['in_size'])
                 det_dataloader = DataLoader(det_dataset, batch_size=len(det_dataset) if len(det_dataset)>0 else 1, shuffle=False, num_workers=4) # all windows in a single batch
 
@@ -264,11 +349,12 @@ if __name__ == '__main__':
                     else:
                         img_out = torch.cat((img_out, out), 0)
 
-                # print(img_out.shape)
-                # print(win_out.shape)
-                # exit()
                 if args.second_nms and img_out is not None:
                     img_out, win_out = NMS(img_out, win_out.to(device), iou_thres=cfg_det["iou_thresh"], redundant=args.redundant, merge=args.merge, max_det=args.max_det, agnostic=args.agnostic)
+                    
+                # OBS
+                # win_out, img_out = filter_dets(win_out, img_out, th=0.7)
+                win_out, img_out = filter_dets_single_matrix(win_out, img_out, th=0.7)
                     
                 if 'track' in args.mode:
                     tracker.update(img_out.detach().cpu().numpy()[:, :-1], trks)
