@@ -47,12 +47,11 @@ def filter_dets_single_matrix(windows, bboxes, th=0.7):
     intersections = torch.cat((intersection_mins, intersection_maxs), dim=2)
     intersections[(intersections[:,:,2] - intersections[:,:,0] < 0) | (intersections[:,:,3] - intersections[:,:,1] < 0)] = 0 # no common area
     
-    # check later
-    # # detections from window = 0
-    # for i, unique_window in enumerate(unique_windows):
-    #     win_ind = torch.unique(torch.where(windows==unique_window)[0])
-    #     intersections[win_ind, i, :] = 0
-    # # print(intersections.shape, bboxes.shape)
+    # detections from window = 0
+    for i, unique_window in enumerate(unique_windows):
+        win_ind = torch.unique(torch.where(windows==unique_window)[0])
+        intersections[win_ind, i, :] = 0
+    # print(intersections.shape, bboxes.shape)
     
     ious = torch.empty((len(bboxes), len(unique_windows), len(bboxes)))
     for i in range(intersections.shape[1]):
@@ -99,12 +98,11 @@ def filter_dets_single_matrix_all(windows, bboxes, th=0.6):
     intersections = torch.cat((intersection_mins, intersection_maxs), dim=2)
     intersections[(intersections[:,:,2] - intersections[:,:,0] < 0) | (intersections[:,:,3] - intersections[:,:,1] < 0)] = 0 # no common area
     
-    # check later
-    # # detections from window = 0
-    # for i, unique_window in enumerate(unique_windows):
-    #     win_ind = torch.unique(torch.where(windows==unique_window)[0])
-    #     intersections[win_ind, i, :] = 0
-    # # print(intersections.shape, bboxes.shape)
+    # detections from window = 0
+    for i, unique_window in enumerate(unique_windows):
+        win_ind = torch.unique(torch.where(windows==unique_window)[0])
+        intersections[win_ind, i, :] = 0
+    # print(intersections.shape, bboxes.shape)
     
     ious = torch.empty((len(bboxes), len(unique_windows), len(bboxes)))
     for i in range(intersections.shape[1]):
@@ -165,12 +163,11 @@ def filter_dets_single_matrix_iou(windows, bboxes, th=0.7):
     intersections = torch.cat((intersection_mins, intersection_maxs), dim=2)
     intersections[(intersections[:,:,2] - intersections[:,:,0] < 0) | (intersections[:,:,3] - intersections[:,:,1] < 0)] = 0 # no common area
     
-    # check later
-    # # detections from window = 0
-    # for i, unique_window in enumerate(unique_windows):
-    #     win_ind = torch.unique(torch.where(windows==unique_window)[0])
-    #     intersections[win_ind, i, :] = 0
-    # # print(intersections.shape, bboxes.shape)
+    # detections from window = 0
+    for i, unique_window in enumerate(unique_windows):
+        win_ind = torch.unique(torch.where(windows==unique_window)[0])
+        intersections[win_ind, i, :] = 0
+    # print(intersections.shape, bboxes.shape)
     
     ious = torch.empty((len(bboxes), len(unique_windows), len(bboxes)))
     for i in range(intersections.shape[1]):
@@ -232,12 +229,11 @@ def filter_dets_single_matrix_area(windows, bboxes, th=0.7):
     intersections = torch.cat((intersection_mins, intersection_maxs), dim=2)
     intersections[(intersections[:,:,2] - intersections[:,:,0] < 0) | (intersections[:,:,3] - intersections[:,:,1] < 0)] = 0 # no common area
     
-    # check later
-    # # detections from window = 0
-    # for i, unique_window in enumerate(unique_windows):
-    #     win_ind = torch.unique(torch.where(windows==unique_window)[0])
-    #     intersections[win_ind, i, :] = 0
-    # # print(intersections.shape, bboxes.shape)
+    # detections from window = 0
+    for i, unique_window in enumerate(unique_windows):
+        win_ind = torch.unique(torch.where(windows==unique_window)[0])
+        intersections[win_ind, i, :] = 0
+    # print(intersections.shape, bboxes.shape)
     
     ious = torch.empty((len(bboxes), len(unique_windows), len(bboxes)))
     for i in range(intersections.shape[1]):
@@ -299,12 +295,11 @@ def filter_dets_single_matrix_conf(windows, bboxes, th=0.7):
     intersections = torch.cat((intersection_mins, intersection_maxs), dim=2)
     intersections[(intersections[:,:,2] - intersections[:,:,0] < 0) | (intersections[:,:,3] - intersections[:,:,1] < 0)] = 0 # no common area
     
-    # check later
-    # # detections from window = 0
-    # for i, unique_window in enumerate(unique_windows):
-    #     win_ind = torch.unique(torch.where(windows==unique_window)[0])
-    #     intersections[win_ind, i, :] = 0
-    # # print(intersections.shape, bboxes.shape)
+    # detections from window = 0
+    for i, unique_window in enumerate(unique_windows):
+        win_ind = torch.unique(torch.where(windows==unique_window)[0])
+        intersections[win_ind, i, :] = 0
+    # print(intersections.shape, bboxes.shape)
     
     ious = torch.empty((len(bboxes), len(unique_windows), len(bboxes)))
     for i in range(intersections.shape[1]):
