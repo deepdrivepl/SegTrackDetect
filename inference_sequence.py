@@ -56,7 +56,7 @@ if __name__ == '__main__':
     
     # sliding window
     parser.add_argument('--overlap_frac', type=float, default=0.05)
-    parser.add_argument('--obs_type', type=str, choices=['iou', 'conf', 'area', 'all', 'none'], default='iou')
+    parser.add_argument('--obs_type', type=str, choices=['iou', 'conf', 'area', 'all', 'none'], default='all')
     parser.add_argument('--obs_iou_th', type=float, default=0.7)
     args = parser.parse_args()
     
