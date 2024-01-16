@@ -26,10 +26,10 @@ def plot_one_box(x, img, color=None, label=None, line_thickness=3, draw_label=Tr
     cv2.rectangle(img, c1, c2, color, thickness=tl, lineType=cv2.LINE_AA)
     if label and draw_label:
         tf = max(tl - 1, 1)  # font thickness
-        t_size = cv2.getTextSize(label, 0, fontScale=tl / 6, thickness=tf)[0]
+        t_size = cv2.getTextSize(label, 0, fontScale=tl / 5, thickness=tf)[0]
         c2 = c1[0] + t_size[0], c1[1] - t_size[1] - 5
         cv2.rectangle(img, c1, c2, color, -1, cv2.LINE_AA)  # filled
-        cv2.putText(img, label, (c1[0], c1[1] - 2), 0, tl / 6, [225, 255, 255], thickness=tf, lineType=cv2.LINE_AA)
+        cv2.putText(img, label, (c1[0], c1[1] - 2), 0, tl / 5, [225, 255, 255], thickness=tf, lineType=cv2.LINE_AA)
     return img
 
 
