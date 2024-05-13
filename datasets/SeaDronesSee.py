@@ -26,6 +26,8 @@ class SeaDronesSeeDataset():
             self.orig_annos = json.load(f)
 
         self.seqs = [os.path.splitext(os.path.basename(x['name:']))[0] for x in self.orig_annos['videos']] 
+        if self.split == 'train' and 'DJI_0003_d3' not in self.seqs:
+            self.seqs+=['DJI_0003_d3'] # fix
         print(f'Found {len(self.imgs)} images, {len(self.seqs)} sequences in {self.split}')
         print(f'Sequences: {self.seqs}')
         
@@ -73,11 +75,12 @@ class SeaDronesSeeDataset():
 
     def get_metadata(self):
         id2vid = {x['id']: os.path.splitext(os.path.basename(x['name:']))[0] for x in self.orig_annos['videos']}
-
+        id2vid[20] = 'DJI_0003_d3' # train set fix, DJI_0003_d3 absent in annotations['videos']
         coco_metadata = pd.DataFrame(self.annotations['images'])
         orig_metadata = pd.DataFrame(self.orig_annos['images'])
 
         merged = pd.merge(coco_metadata, orig_metadata, on="id")
+        
         coco_metadata['sequence'] = merged.apply(lambda x: id2vid[x.video_id], axis=1)
         coco_metadata['frame_id'] = merged['frame_index']
         return coco_metadata
