@@ -46,7 +46,7 @@ def yolov7_postprocess(output):
 
     
 u2net = dict(
-    weights = "trained_models/u2netp.pt", #trained_models/DistanceAwareCELoss-aug-scheduler-u2netp-00000056.pth",
+    weights = "weights/u2netp_MTSD.pt",
     in_size = (576,576),
     thresh = 0.5,
     transform = roi_transform,
@@ -56,7 +56,7 @@ u2net = dict(
 
 
 unet = dict(
-    weights = "trained_models/unet-r18_005_best_model_loss.pt",
+    weights = "weights/unetR18-ZebraFish.pt",
     in_size = (160,256),
     thresh = None,
     args = None,
@@ -67,18 +67,8 @@ unet = dict(
 )
 
 
-yolov7_w6 = dict(
-    weights = "trained_models/yolov7-w6-640-best.torchscript.pt",
-    in_size = (448,704),
-    conf_thresh = 0.001,
-    iou_thresh = 0.65,
-    transform = T.ToTensor(),
-    postprocess=yolov7_postprocess,
-)
-
-
 yolov7_tiny = dict(
-    weights = "trained_models/yolov7-tiny-new-trainval-split-300-fixed-cropped-ds-best.torchscript.pt", #"trained_models/yolov7-tiny-new-trainval-split-300-best.torchscript.pt", #yolov7-tiny-300-best.torchscript.pt",
+    weights = "weights/yolov7t-ZebraFish.pt",
     in_size = (160,256),
     conf_thresh = 0.001,
     iou_thresh = 0.65,
@@ -88,7 +78,7 @@ yolov7_tiny = dict(
 
 
 yolov4 = dict(
-    weights = "trained_models/mtsd001_best.pt",
+    weights = "weights/yolov4_MTSD.pt",
     in_size = (960,960),
     conf_thresh = 0.001,
     iou_thresh = 0.65,
@@ -104,7 +94,6 @@ ROI_MODELS = {
 
 
 DET_MODELS = {
-    "yolov7_w6": yolov7_w6,
     "yolov7_tiny": yolov7_tiny,
     "yolov4": yolov4
 }
