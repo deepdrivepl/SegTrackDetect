@@ -46,7 +46,7 @@ if __name__ == '__main__':
     parser.add_argument('--max_det', type=int, default=500)
     parser.add_argument('--agnostic', default=False, action='store_true')
     # general
-    parser.add_argument('--mode', type=str, default='roi_track', choices=['roi', 'track', 'roi_track', 'sw', 'sd'])
+    parser.add_argument('--mode', type=str, default='roi_track', choices=['roi', 'track', 'roi_track'])
     parser.add_argument('--cpu', default=False, action='store_true')
     parser.add_argument('--out_dir', type=str, default='detections')
     parser.add_argument('--debug', default=False, action='store_true')
@@ -54,8 +54,6 @@ if __name__ == '__main__':
     # tracker
     parser.add_argument('--frame_delay', type=int, default=3)
     
-    # sliding window
-    parser.add_argument('--overlap_frac', type=float, default=0.05)
     parser.add_argument('--obs_type', type=str, choices=['iou', 'conf', 'area', 'all', 'none'], default='all')
     parser.add_argument('--obs_iou_th', type=float, default=0.7)
     args = parser.parse_args()
@@ -112,9 +110,12 @@ if __name__ == '__main__':
                 roi_bboxes, trk_bboxes, bboxes_det = np.empty((0,4)), np.empty((0,4)), np.empty((0,4))
                 d0_fullres = None
                 
-                if args.mode == 'sd':
+                    
+                if args.mode == 'track' and i < args.frame_delay: # single det (for frame_delay frames) to initialize the tracker
+                    print(i, args.frame_delay)
                     out = net_det(img.to(device))
                     out = cfg_det["postprocess"](out)
+
                     out = non_max_suppression(
                         out, 
                         conf_thres = cfg_det['conf_thresh'], 
@@ -130,10 +131,13 @@ if __name__ == '__main__':
                         (metadata['image_h'][0].item(), metadata['image_w'][0].item())
                     )
                     out = out.detach().cpu().numpy()
+                    trks = tracker.get_pred_locations()
+                    tracker.update(out[:, :-1], trks)
+                    
                     out_ = out.copy()
                     out_[:,:4] = xyxy2xywh(out[:,:4])
                     end = time.time()
-
+                    
                     for p in out_.tolist():
                         annotations.append(
                             {
@@ -146,86 +150,38 @@ if __name__ == '__main__':
                             }
                         )
                     make_vis(d0_fullres, roi_bboxes, trk_bboxes, bboxes_det, out, metadata, out_dir, i,  args.vis_conf_th)
-                    continue # do not run the window detection
-                    
-                elif args.mode == 'sw':
-                    start = time.time()
-                    bboxes_det = getSlidingWindowBBoxes(H_orig, W_orig, args.overlap_frac, det_size=cfg_det["in_size"])
-                    
-                else: # track, roi, roi_track
-                    if args.mode == 'track' and i < args.frame_delay: # single det (for frame_delay frames) to initialize the tracker
-                        print(i, args.frame_delay)
-                        out = net_det(img.to(device))
-                        out = cfg_det["postprocess"](out)
-                        # print(out.shape)
-                        # print(out[:,:10,:])
-                        # exit()
-                        out = non_max_suppression(
-                            out, 
-                            conf_thres = cfg_det['conf_thresh'], 
-                            iou_thres = cfg_det['iou_thresh'],
-                            multi_label = True,
-                            labels = [],
-                            merge = args.merge,
-                            agnostic = args.agnostic
-                        )[0]
-                        scale_coords(
-                            (metadata['unpadded_h'][0].item(), metadata['unpadded_w'][0].item()),
-                            out[:, :4],
-                            (metadata['image_h'][0].item(), metadata['image_w'][0].item())
-                        )
-                        out = out.detach().cpu().numpy()
-                        trks = tracker.get_pred_locations()
-                        tracker.update(out[:, :-1], trks)
-                        
-                        out_ = out.copy()
-                        out_[:,:4] = xyxy2xywh(out[:,:4])
-                        end = time.time()
-                        
-                        for p in out_.tolist():
-                            annotations.append(
-                                {
-                                    "image_id": i,
-                                    "image_path": metadata['image_path'][0],
-                                    "category_id": int(p[-1]),
-                                    "bbox": [round(x, 3) for x in p[:4]],
-                                    "score": round(p[4], 5),
-                                    "inference_time": end-start,
-                                }
-                            )
-                        make_vis(d0_fullres, roi_bboxes, trk_bboxes, bboxes_det, out, metadata, out_dir, i,  args.vis_conf_th)
-                        continue # do not run the window detection, just track for frame_delay frames 
+                    continue # do not run the window detection, just track for frame_delay frames 
 
-                    elif 'roi' in args.mode: # predict ROIs
-                        d0 = net_roi(img.to(device))
-                        d0_fullres, d0 = cfg_roi["postprocess"](d0, original_shape, cfg_roi["sigmoid_included"], cfg_roi["thresh"])
+                elif 'roi' in args.mode: # predict ROIs
+                    d0 = net_roi(img.to(device))
+                    d0_fullres, d0 = cfg_roi["postprocess"](d0, original_shape, cfg_roi["sigmoid_included"], cfg_roi["thresh"])
 
-                        if args.dilate:
-                            kernel = np.ones((args.k_size, args.k_size), np.uint8)
-                            d0 = cv2.dilate(d0, kernel, iterations = args.iter)
+                    if args.dilate:
+                        kernel = np.ones((args.k_size, args.k_size), np.uint8)
+                        d0 = cv2.dilate(d0, kernel, iterations = args.iter)
 
-                        roi_bboxes = findBboxes(d0, original_shape, d0.shape)
+                    roi_bboxes = findBboxes(d0, original_shape, d0.shape)
 
-                    if 'track' in args.mode:
-                        trks = tracker.get_pred_locations()
-                        if i >= args.frame_delay:
-                            trk_bboxes = trks[:,:-1]
+                if 'track' in args.mode:
+                    trks = tracker.get_pred_locations()
+                    if i >= args.frame_delay:
+                        trk_bboxes = trks[:,:-1]
 
-                    merged_bboxes = np.concatenate((roi_bboxes, trk_bboxes), axis=0)
+                merged_bboxes = np.concatenate((roi_bboxes, trk_bboxes), axis=0)
 
-                    bboxes_det = getDetectionBboxes(
-                        merged_bboxes, 
-                        H_orig, W_orig, 
-                        det_size=cfg_det['in_size'], 
-                        bbox_type=args.bbox_type
-                    )
-                    bboxes_roi = np.array([x[1] for x in bboxes_det]).astype(np.int32)
-                    bboxes_det = np.array([x[0] for x in bboxes_det]).astype(np.int32)
-                      
-                    indices = np.nonzero(((bboxes_det[:,2]-bboxes_det[:,0]) > 0) & ((bboxes_det[:,3]-bboxes_det[:,1]) > 0))[0]
-                    # [x for x in bboxes_det if (x[2]-x[0]>0 and x[3]-x[1]>0)] # TODO restore this line later
-                    bboxes_roi = bboxes_roi[indices, :]
-                    bboxes_det = bboxes_det[indices, :]
+                bboxes_det = getDetectionBboxes(
+                    merged_bboxes, 
+                    H_orig, W_orig, 
+                    det_size=cfg_det['in_size'], 
+                    bbox_type=args.bbox_type
+                )
+                bboxes_roi = np.array([x[1] for x in bboxes_det]).astype(np.int32)
+                bboxes_det = np.array([x[0] for x in bboxes_det]).astype(np.int32)
+                  
+                indices = np.nonzero(((bboxes_det[:,2]-bboxes_det[:,0]) > 0) & ((bboxes_det[:,3]-bboxes_det[:,1]) > 0))[0]
+                # [x for x in bboxes_det if (x[2]-x[0]>0 and x[3]-x[1]>0)] # TODO restore this line later
+                bboxes_roi = bboxes_roi[indices, :]
+                bboxes_det = bboxes_det[indices, :]
                 det_dataset =  WindowDetectionDataset(metadata['image_path'][0], bboxes_det, cfg_det['in_size'])
                 det_dataloader = DataLoader(det_dataset, batch_size=len(det_dataset) if len(det_dataset)>0 else 1, shuffle=False, num_workers=4) # all windows in a single batch
 
@@ -263,8 +219,8 @@ if __name__ == '__main__':
                             pred[:,2] = xmax_
                             pred[:,3] = ymax_
                         pred[:,:4] = pred[:,:4] + det_metadata['translate'][si].to(device) # to the coordinates of the original image
-                        # out[si] = IBS(det_metadata['bbox'][si].to(device), pred, H_orig, W_orig, th=10) # it filers correct detections !!!!
-                    # print(det_metadata['bbox'])    
+          
+  
                     if not img_out.numel():
                         img_out = torch.cat(out)
                     else:
