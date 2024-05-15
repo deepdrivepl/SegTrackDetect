@@ -46,7 +46,7 @@ def yolov7_postprocess(output):
 
     
 u2net = dict(
-    weights = "weights/u2netp-MTSD.pt",
+    weights = "weights/u2netp_MTSD.pt",
     in_size = (576,576),
     thresh = 0.5,
     transform = roi_transform,
@@ -78,7 +78,7 @@ yolov7_tiny = dict(
 
 
 yolov4 = dict(
-    weights = "weights/yolov4-MTSD.pt",
+    weights = "weights/yolov4_MTSD.pt",
     in_size = (960,960),
     conf_thresh = 0.001,
     iou_thresh = 0.65,
