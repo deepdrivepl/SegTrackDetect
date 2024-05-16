@@ -15,20 +15,31 @@ class DroneCrowdDataset():
     
     def __init__(self, split='val', root_dir='/tinyROI/data/DroneCrowd', flist=None, name=None):
         
-        assert split in ['train', 'val', 'test']
-        self.split = split
-        
+        self.splits = ['train', 'val', 'test']
         self.root_dir = root_dir
         self.img_dir = os.path.join(self.root_dir, f'{split}_data', 'images')
-        self.imgs = sorted(glob(f'{self.img_dir}/*.jpg'))
+        self.categories = [{"id": 0, "name": "human", "supercategory": "human"}]
+
+        if flist is not None:
+            print(f"Inferencing {len(flist)} images provided in a text file, with a name {name}")
+            assert name is not None, f"Provide a name for the images listed in a text file"
+            assert name not in self.splits, f"Provide a name different than {self.splits}"
+            self.imgs = sorted(flist)
+            self.split = name
+        else:
+            print(f"Inferencing {split} split images")
+            assert split in self.splits
+            self.split = split
+            self.imgs = sorted(glob(f'{self.img_dir}/*.jpg'))
+        
+        
         self.seqs = sorted(list(set([os.path.basename(x)[3:6] for x in self.imgs])))
         print(f'Found {len(self.imgs)} images, {len(self.seqs)} sequences in {self.split}')
         print(f'Sequences: {self.seqs}')
         
-
         self.ann_dir = os.path.join(self.root_dir, 'annotations')
-        self.coco_json = os.path.join(self.root_dir, f'{split}.json')
-        self.categories = [{"id": 0, "name": "human", "supercategory": "human"}]
+        self.coco_json = os.path.join(self.root_dir, f'{self.split}.json')
+        
         if not os.path.isfile(self.coco_json):
             print('Converting annotations to coco json.')
             self.annotations = self.annotations2coco()
@@ -36,6 +47,7 @@ class DroneCrowdDataset():
             with open(self.coco_json, 'w', encoding='utf-8') as f:
                 json.dump(self.annotations, f, ensure_ascii=False, indent=4)
         else:
+            print(f'Loading {self.coco_json}')
             with open(self.coco_json) as f:
                 self.annotations = json.load(f)
         
@@ -47,9 +59,7 @@ class DroneCrowdDataset():
         for img_path in self.imgs:
             seq = self.get_image_metadata(img_path)['sequence']
             self.seq2imgs[seq].append(img_path)
-        print({k:len(v) for k,v in self.seq2imgs.items()})
-
-        print(self.imgs_metadata)
+        print({k:f'len(seq): {len(v)}' for k,v in self.seq2imgs.items()})
 
            
         

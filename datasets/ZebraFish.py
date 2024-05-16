@@ -10,20 +10,28 @@ import pandas as pd
 import scipy.io
 
 
-# warning val is a part of test set
 class ZebraFishDataset():
     
     def __init__(self, split='train', root_dir='/tinyROI/data/3DZeF20', flist=None, name=None):
         
-        assert split in ['train', 'val', 'test']
-        self.split = split
-        
+        self.splits = ['train', 'test']
         self.root_dir = root_dir
-        
-        self.coco_json = os.path.join(self.root_dir, f'{split}.json')
         self.categories = [{"id": 0, "name": "fish", "supercategory": "fish"}]
-        if not os.path.isfile(self.coco_json):
+
+        if flist is not None:
+            print(f"Inferencing {len(flist)} images provided in a text file, with a name {name}")
+            assert name is not None, f"Provide a name for the images listed in a text file"
+            assert name not in self.splits, f"Provide a name different than {self.splits}"
+            self.imgs = sorted(flist)
+            self.split = name
+        else:
+            print(f"Inferencing {split} split images")
+            assert split in self.splits
+            self.split = split
             self.imgs = sorted(glob(f'{self.root_dir}/{self.split}/**/img*/*.jpg', recursive=True))
+            
+        self.coco_json = os.path.join(self.root_dir, f'{self.split}.json')
+        if not os.path.isfile(self.coco_json):
             self.seqs = sorted(list(set(['_'.join([os.path.dirname(x).split(os.sep)[-2], os.path.dirname(x).split(os.sep)[-1]]) for x in self.imgs])))
             print(f'Found {len(self.imgs)} images, {len(self.seqs)} sequences in {self.split}')
             print(f'Sequences: {self.seqs}')
@@ -53,7 +61,7 @@ class ZebraFishDataset():
         for img_path in self.imgs:
             seq = self.get_image_metadata(img_path)['sequence']
             self.seq2imgs[seq].append(img_path)
-        print({k:len(v) for k,v in self.seq2imgs.items()})
+        print({k:f'len(seq): {len(v)}' for k,v in self.seq2imgs.items()})
 
 
 
@@ -63,7 +71,7 @@ class ZebraFishDataset():
         "camF_left", "camF_top", "camF_width", "camF_height", "camF_occlusion"
         ]
 
-        gt_paths = glob(os.path.join(self.root_dir, self.split, "*", "gt", "gt.txt"))
+        gt_paths = glob(os.path.join(self.root_dir, "**", "gt", "gt.txt"), recursive=True)
 
         to_concat = []
         for gt_path in gt_paths:

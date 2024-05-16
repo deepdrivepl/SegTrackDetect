@@ -17,20 +17,29 @@ class MTSDDataset():
     
     def __init__(self, split='val', root_dir='/tinyROI/data/MTSD', flist=None, name=None):
         
-        assert split in ['train', 'val', 'test']
-        self.split = split
-        
+        self.splits = ['train', 'val', 'test']
         self.root_dir = root_dir
         self.img_dir = os.path.join(self.root_dir, 'images')
-        self.imgs = [os.path.join(self.root_dir, 'images', f'{x.rstrip()}.jpg') 
-                     for x in open(os.path.join(self.root_dir, 'splits', f'{split}.txt'))]
         self.seqs = None
+
+        if flist is not None:
+            print(f"Inferencing {len(flist)} images provided in a text file, with a name {name}")
+            assert name is not None, f"Provide a name for the images listed in a text file"
+            assert name not in self.splits, f"Provide a name different than {self.splits}"
+            self.imgs = sorted(flist)
+            self.split = name
+        else:
+            print(f"Inferencing {split} split images")
+            assert split in self.splits
+            self.split = split
+            self.imgs = [os.path.join(self.root_dir, 'images', f'{x.rstrip()}.jpg') 
+                         for x in open(os.path.join(self.root_dir, 'splits', f'{split}.txt'))]
+        
         print(f'Found {len(self.imgs)} images in {self.split}')
         
-
         self.ann_dir = os.path.join(self.root_dir, 'annotations_v1') # old version
         self.categories = self.get_categories() # 314 classes
-        self.coco_json = os.path.join(self.root_dir, f'{split}.json')
+        self.coco_json = os.path.join(self.root_dir, f'{self.split}.json')
         if not os.path.isfile(self.coco_json):
             print('Converting annotations to coco json.')
             self.annotations = self.annotations2coco()
@@ -38,6 +47,7 @@ class MTSDDataset():
             with open(self.coco_json, 'w', encoding='utf-8') as f:
                 json.dump(self.annotations, f, ensure_ascii=False, indent=4)
         else:
+            print(f'Loading {self.coco_json}')
             with open(self.coco_json) as f:
                 self.annotations = json.load(f)
         
