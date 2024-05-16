@@ -14,6 +14,16 @@ def roi_transform(h,w):
     return transform
 
 
+def det_transform(h,w):
+    transform = T.Compose([
+        T.ToTensor(),
+        T.Resize((h, w), antialias=True),
+        T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+    ])
+    return transform
+
+
+
 def unet_postprocess(output, ori_shape, sigmoid_included=False, thresh=None):
     output = torch.squeeze(output)
     if not sigmoid_included:
@@ -72,7 +82,7 @@ yolov7_tiny = dict(
     in_size = (160,256),
     conf_thresh = 0.001,
     iou_thresh = 0.65,
-    transform = T.ToTensor(),
+    transform = det_transform, # T.ToTensor(),
     postprocess=yolov7_postprocess,
 )
 
