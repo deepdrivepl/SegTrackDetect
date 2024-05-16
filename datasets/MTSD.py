@@ -9,12 +9,13 @@ from tqdm import tqdm
 from PIL import Image
 
 import pandas as pd
+import numpy as np
 import scipy.io
 
 
 class MTSDDataset():
     
-    def __init__(self, split='val', root_dir='data/MTSD'): #'/tinyROI/data/DroneCrowd'):
+    def __init__(self, split='val', root_dir='/tinyROI/data/MTSD', flist=None, name=None):
         
         assert split in ['train', 'val', 'test']
         self.split = split
@@ -41,11 +42,9 @@ class MTSDDataset():
                 self.annotations = json.load(f)
         
         self.imgs_metadata = pd.DataFrame(self.annotations['images'])
-        self.imgs_metadata['sequence'] = None
-        self.imgs_metadata['frame_id'] = None
+        self.imgs_metadata['sequence'] = np.nan
+        self.imgs_metadata['frame_id'] = np.nan
         self.seq2imgs = None
-
-        print(self.imgs_metadata)
 
            
     def annotations2coco(self):

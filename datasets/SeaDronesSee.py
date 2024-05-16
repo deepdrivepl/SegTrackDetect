@@ -12,7 +12,7 @@ import scipy.io
 
 class SeaDronesSeeDataset():
     
-    def __init__(self, split='val', root_dir='data/SeaDronesSee'): #'/tinyROI/data/SeaDronesSee'):
+    def __init__(self, split='val', root_dir='/tinyROI/data/SeaDronesSee', flist=None, name=None):
         
         assert split in ['train', 'val', 'test']
         self.split = split

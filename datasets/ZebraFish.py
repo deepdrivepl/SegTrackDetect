@@ -13,30 +13,38 @@ import scipy.io
 # warning val is a part of test set
 class ZebraFishDataset():
     
-    def __init__(self, split='train', root_dir='data/3DZeF20'): #'/tinyROI/data/3DZeF20'):
+    def __init__(self, split='train', root_dir='/tinyROI/data/3DZeF20', flist=None, name=None):
         
-        assert split in ['train', 'test']
+        assert split in ['train', 'val', 'test']
         self.split = split
         
         self.root_dir = root_dir
-        self.imgs = sorted(glob(f'{self.root_dir}/{self.split}/**/img*/*.jpg', recursive=True))
-        self.seqs = sorted(list(set(['_'.join([os.path.dirname(x).split(os.sep)[-2], os.path.dirname(x).split(os.sep)[-1]]) for x in self.imgs])))
-        print(f'Found {len(self.imgs)} images, {len(self.seqs)} sequences in {self.split}')
-        print(f'Sequences: {self.seqs}')
         
-        self.orig_annos = self.load_orig_annos()
         self.coco_json = os.path.join(self.root_dir, f'{split}.json')
         self.categories = [{"id": 0, "name": "fish", "supercategory": "fish"}]
         if not os.path.isfile(self.coco_json):
+            self.imgs = sorted(glob(f'{self.root_dir}/{self.split}/**/img*/*.jpg', recursive=True))
+            self.seqs = sorted(list(set(['_'.join([os.path.dirname(x).split(os.sep)[-2], os.path.dirname(x).split(os.sep)[-1]]) for x in self.imgs])))
+            print(f'Found {len(self.imgs)} images, {len(self.seqs)} sequences in {self.split}')
+            print(f'Sequences: {self.seqs}')
+            
+            self.orig_annos = self.load_orig_annos()
             print('Converting annotations to coco json.')
             self.annotations = self.annotations2coco()
             print(f'Saving {self.coco_json}')
             with open(self.coco_json, 'w', encoding='utf-8') as f:
                 json.dump(self.annotations, f, ensure_ascii=False, indent=4)
         else:
+            print(f'Loading {self.coco_json}')
             with open(self.coco_json) as f:
                 self.annotations = json.load(f)
+
+            self.imgs = sorted([x["file_name"] for x in self.annotations["images"]])
+            self.seqs = sorted(list(set(['_'.join([os.path.dirname(x).split(os.sep)[-2], os.path.dirname(x).split(os.sep)[-1]]) for x in self.imgs])))
         
+            print(f'Found {len(self.imgs)} images, {len(self.seqs)} sequences in {self.split}')
+            print(f'Sequences: {self.seqs}')
+
         self.imgs_metadata = pd.DataFrame(self.annotations['images'])
         self.imgs_metadata['sequence'] = self.imgs_metadata.apply(lambda x: '_'.join([os.path.dirname(x.file_name).split(os.sep)[-2], os.path.dirname(x.file_name).split(os.sep)[-1]]), axis=1)
         self.imgs_metadata['frame_id'] = self.imgs_metadata.apply(lambda x: int(os.path.basename(x.file_name).replace('.jpg', '')), axis=1)
@@ -46,8 +54,6 @@ class ZebraFishDataset():
             seq = self.get_image_metadata(img_path)['sequence']
             self.seq2imgs[seq].append(img_path)
         print({k:len(v) for k,v in self.seq2imgs.items()})
-
-        print(self.imgs_metadata)
 
 
 

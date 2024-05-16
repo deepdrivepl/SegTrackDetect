@@ -13,7 +13,7 @@ import scipy.io
 # warning val is a part of test set
 class DroneCrowdDataset():
     
-    def __init__(self, split='val', root_dir='data/DroneCrowd'): #'/tinyROI/data/DroneCrowd'):
+    def __init__(self, split='val', root_dir='/tinyROI/data/DroneCrowd', flist=None, name=None):
         
         assert split in ['train', 'val', 'test']
         self.split = split
