@@ -70,6 +70,10 @@ if __name__ == '__main__':
     os.makedirs(args.out_dir, exist_ok=False)
     out_dir = args.out_dir
     save_args(out_dir, args)
+
+    if args.debug:
+        debug_dir = f'{args.out_dir}/vis'
+        os.makedirs(debug_dir, exist_ok=True)
     
     
     # get models
@@ -113,7 +117,7 @@ if __name__ == '__main__':
                 original_shape = (H_orig, W_orig)
 
 
-                roi_bboxes, trk_bboxes, bboxes_det = np.empty((0,4)), np.empty((0,4)), np.empty((0,4))
+                roi_bboxes, trk_bboxes, det_bboxes = np.empty((0,4)), np.empty((0,4)), np.empty((0,4))
                 d0_fullres = None
                 
                     
@@ -134,7 +138,7 @@ if __name__ == '__main__':
                     scale_coords(
                         cfg_det["in_size"],
                         out[:, :4],
-                        (metadata['image_h'][0].item(), metadata['image_w'][0].item())
+                        (H_orig, W_orig)
                     )
                     out = out.detach().cpu().numpy()
                     trks = tracker.get_pred_locations()
@@ -158,7 +162,15 @@ if __name__ == '__main__':
                             }
                             
                         )
-                    make_vis(d0_fullres, roi_bboxes, trk_bboxes, bboxes_det, out, metadata, out_dir, i,  args.vis_conf_th)
+                    if args.debug:
+                        frame = cv2.imread(metadata['image_path'][0])
+                        frame = make_vis(frame, d0_fullres, roi_bboxes, trk_bboxes, det_bboxes, out, ds.classes, ds.colors, args.vis_conf_th)
+                        out_fname = f"{debug_dir}/{os.path.basename(metadata['image_path'][0])}"
+                        if os.path.isfile(out_fname): # non-unique names
+                            seq = ds.imgs_metadata[ds.imgs_metadata.file_name==metadata['image_path'][0]].iloc[0]
+                            out_fname = f"{debug_dir}/{seq}_{os.path.basename(metadata['image_path'][0])}"
+                        cv2.imwrite(out_fname, frame)
+                        
                     continue # do not run the window detection, just track for frame_delay frames 
 
                 elif 'roi' in args.mode: # predict ROIs
@@ -178,22 +190,22 @@ if __name__ == '__main__':
 
                 merged_bboxes = np.concatenate((roi_bboxes, trk_bboxes), axis=0)
 
-                bboxes_det = getDetectionBboxes(
+                det_bboxes = getDetectionBboxes(
                     merged_bboxes, 
                     H_orig, W_orig, 
                     det_size=cfg_det['in_size'], 
                     bbox_type=args.bbox_type
                 )
-                bboxes_roi = np.array([x[1] for x in bboxes_det]).astype(np.int32)
-                bboxes_det = np.array([x[0] for x in bboxes_det]).astype(np.int32)
+                bboxes_roi = np.array([x[1] for x in det_bboxes]).astype(np.int32)
+                det_bboxes = np.array([x[0] for x in det_bboxes]).astype(np.int32)
                 
-                if len(bboxes_det) > 0:
-                    indices = np.nonzero(((bboxes_det[:,2]-bboxes_det[:,0]) > 0) & ((bboxes_det[:,3]-bboxes_det[:,1]) > 0))
+                if len(det_bboxes) > 0:
+                    indices = np.nonzero(((det_bboxes[:,2]-det_bboxes[:,0]) > 0) & ((det_bboxes[:,3]-det_bboxes[:,1]) > 0))
                     indices = indices[0]
                     bboxes_roi = bboxes_roi[indices, :]
-                    bboxes_det = bboxes_det[indices, :]
+                    det_bboxes = det_bboxes[indices, :]
 
-                det_dataset =  WindowDetectionDataset(metadata['image_path'][0], ds, bboxes_det, cfg_det['in_size'])
+                det_dataset =  WindowDetectionDataset(metadata['image_path'][0], ds, det_bboxes, cfg_det['in_size'])
                 det_dataloader = DataLoader(det_dataset, batch_size=len(det_dataset) if len(det_dataset)>0 else 1, shuffle=False, num_workers=4) # all windows in a single batch
 
                 img_out = torch.empty((0, 6))
@@ -252,7 +264,13 @@ if __name__ == '__main__':
                 end = time.time()
                 
                 if args.debug:
-                    make_vis(d0_fullres, roi_bboxes, trk_bboxes, bboxes_det, img_out.detach().cpu().numpy(), metadata, out_dir, i,  args.vis_conf_th)
+                    frame = cv2.imread(metadata['image_path'][0])
+                    frame = make_vis(frame, d0_fullres, roi_bboxes, trk_bboxes, det_bboxes, img_out.detach().cpu().numpy(), ds.classes, ds.colors, args.vis_conf_th)
+                    out_fname = f"{debug_dir}/{os.path.basename(metadata['image_path'][0])}"
+                    if os.path.isfile(out_fname): # non-unique names
+                        seq = ds.imgs_metadata[ds.imgs_metadata.file_name==metadata['image_path'][0]].iloc[0]
+                        out_fname = f"{debug_dir}/{seq}_{os.path.basename(metadata['image_path'][0])}"
+                    cv2.imwrite(out_fname, frame)
                 
                 img_out[:,:4] = xyxy2xywh(img_out[:,:4])
                 for p in img_out.tolist():

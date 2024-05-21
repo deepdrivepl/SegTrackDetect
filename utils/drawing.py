@@ -9,45 +9,34 @@ from PIL import Image, ImageFont, ImageDraw
 
 
 
-def plot_mask(mask, image, random_color=False, alpha=0.4):
+def plot_mask(mask, image, alpha=0.4):
     mask = cv2.merge((mask, mask, mask))
     color = np.full(mask.shape, np.array([255, 144, 30]))
     
     mask = np.where(mask==255, color, image).astype(np.uint8) # mask > 0 ?
-    image_new = cv2.addWeighted(image, alpha, mask, 1 - alpha, 0) 
-    return image_new
+    masked_image = cv2.addWeighted(image, alpha, mask, 1 - alpha, 0) 
+    return masked_image
 
 
-def plot_one_box(x, img, color=None, label=None, line_thickness=3, draw_label=True):
-    # tl = round(0.002 * (img.shape[0] + img.shape[1]) / 3) + 1 # line/font thickness
-    tl = line_thickness
-    color = color or [random.randint(0, 255) for _ in range(3)]
-    c1, c2 = (int(x[0]), int(x[1])), (int(x[2]), int(x[3]))
-    cv2.rectangle(img, c1, c2, color, thickness=tl, lineType=cv2.LINE_AA)
-    if label and draw_label:
-        tf = max(tl - 1, 1)  # font thickness
-        t_size = cv2.getTextSize(label, 0, fontScale=tl / 5, thickness=tf)[0]
-        c2 = c1[0] + t_size[0], c1[1] - t_size[1] - 5
-        cv2.rectangle(img, c1, c2, color, -1, cv2.LINE_AA)  # filled
-        cv2.putText(img, label, (c1[0], c1[1] - 2), 0, tl / 5, [225, 255, 255], thickness=tf, lineType=cv2.LINE_AA)
+def plot_one_box(bbox, img, color, label=None, lw=4, draw_label=True):
+    
+    xmin,ymin,xmax,ymax = list(map(int, bbox))
+    img = cv2.rectangle(img, (xmin,ymin), (xmax,ymax), color, lw)
+
+    if draw_label:
+        ((text_width, text_height), _) = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.45, 1)
+        img = cv2.rectangle(img, (xmin, ymin - int(1.3 * text_height)), (xmin + text_width, ymin), color, -1)
+        
+        img = cv2.putText(
+            img,
+            text=label,
+            org=(xmin, ymin - int(0.3 * text_height)),
+            fontFace=cv2.FONT_HERSHEY_SIMPLEX,
+            fontScale=0.45,
+            color=(0, 0, 0),
+            lineType=cv2.LINE_AA,
+    )
     return img
-
-
-def get_colors():
-    palette = itertools.cycle(sns.color_palette())
-
-    colors = {}
-    for i, (_, clr) in enumerate(zip(cat2label, palette)):
-        colors[i] = tuple([int(x*255) for x in clr])
-    return colors
-
-
-def denormalize_numpy(img):
-    img=img.copy()
-    img[:,:,0] = img[:,:,0]*0.229+0.485
-    img[:,:,1] = img[:,:,1]*0.224+0.456
-    img[:,:,2] = img[:,:,2]*0.225+0.406
-    return (img*255).astype(np.uint8)
 
 
 def draw_text(frame_numpy, text, x, y, color=(250,0,0), font='JetBrainsMono-ExtraBold.ttf', frac=0.01):
@@ -62,55 +51,38 @@ def draw_text(frame_numpy, text, x, y, color=(250,0,0), font='JetBrainsMono-Extr
     return np.array(frame_PIL)
 
 
+# draw rois (trks and seg), detection windows, and detections
+def make_vis(frame, roi_mask, roi_bboxes, trk_bboxes, det_bboxes, detections, classes, colors, vis_conf_th=0.3):
+    
+    if roi_mask is not None:
+        frame = plot_mask(roi_mask, frame)
 
-def make_vis(d0_fullres, roi_bboxes, trk_bboxes, det_bboxes, img_out, metadata, out_dir, frame_id, vis_conf_th):
+
     
-    seq, view, fname = metadata['image_path'][0].split(os.sep)[-3:]
-    out_path = os.path.join(out_dir, seq, f'{view}-windows', fname)
-    out_path_mask = os.path.join(out_dir, seq,  f'{view}-masks', fname).replace('.jpg','.png')
-    out_path_dets = os.path.join(out_dir, seq,  f'{view}-dets', fname)
-    os.makedirs(os.path.dirname(out_path), exist_ok=True)
-    os.makedirs(os.path.dirname(out_path_mask), exist_ok=True)
-    os.makedirs(os.path.dirname(out_path_dets), exist_ok=True)
-    
-    frame = cv2.imread(metadata['image_path'][0])
-    
-    if d0_fullres is not None:
-        frame = plot_mask(d0_fullres, frame)
-    
-    
-    for bbox_det in det_bboxes:
-        frame = plot_one_box(list(map(int, bbox_det)), frame, color=(0,0,180), label='WINDOW', line_thickness=4, draw_label=True)
-    frame_dets = frame.copy()
-                
+    for det_bbox in det_bboxes:
+        frame = plot_one_box(list(map(int, det_bbox)), frame, color=(0,0,180), label='WIN')     
     for roi_bbox in roi_bboxes:
-        frame = plot_one_box(list(map(int, roi_bbox)), frame, color=(200,0,0), label='ROI', line_thickness=4, draw_label=True)         
+        frame = plot_one_box(list(map(int, roi_bbox)), frame, color=(200,0,0), label='SEG')       
     for trk_bbox in trk_bboxes:
-        frame = plot_one_box(list(map(int, trk_bbox)), frame, color=(0,200,0), label='KF', line_thickness=4, draw_label=True) 
+        frame = plot_one_box(list(map(int, trk_bbox)), frame, color=(0,200,0), label='MOT') 
     
         
-    stats = ["FRAME  %03d" % (frame_id), 
-             "", 
-             "ROI  %02d" % (len(roi_bboxes)), 
+    stats = [
+             "SEG  %02d" % (len(roi_bboxes)), 
              "MOT  %02d" % (len(trk_bboxes)), 
-             "DET  %02d" % (len(det_bboxes))
+             "WIN  %02d" % (len(det_bboxes))
             ]
     frame = draw_text(frame, "\n".join(stats), 20, 40, color=(255,255,255))
-    cv2.imwrite(out_path, frame)
+
     
-    if d0_fullres is not None:
-        cv2.imwrite(out_path_mask, d0_fullres)
-    
-    for bbox_det in det_bboxes:
-        frame_dets = plot_one_box(list(map(int, bbox_det)), frame_dets, color=(0,0,180), label='WINDOW', line_thickness=4, draw_label=True)
-    
-    img_out = img_out[img_out[:, -2] >= vis_conf_th]
-    for det in img_out.tolist():
+    detections = detections[detections[:, -2] >= vis_conf_th]
+    for det in detections.tolist():
         xmin,ymin,xmax,ymax,conf,cls = det
-        frame_dets = plot_one_box(list(map(int, [xmin,ymin,xmax,ymax])), frame_dets, color=(180,20,20), 
-                             label=f'DET {int(conf*100)}', line_thickness=1, draw_label=True)
-        
-        
-    stats = ["FRAME  %03d" % (frame_id), "", "DETS   %02d" % len(img_out.tolist())]
-    frame_dets = draw_text(frame_dets, "\n".join(stats), 20, 40, color=(255,255,255))
-    cv2.imwrite(out_path_dets, frame_dets)
+        frame = plot_one_box(
+            list(map(int, [xmin,ymin,xmax,ymax])), 
+            frame, 
+            color=colors[int(cls)], 
+            label=f'{classes[int(cls)]} {int(conf*100)}%'
+        )
+    
+    return frame
