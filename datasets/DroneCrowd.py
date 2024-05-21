@@ -51,6 +51,9 @@ class DroneCrowdDataset():
             with open(self.coco_json) as f:
                 self.annotations = json.load(f)
         
+        self.classes = ['human']
+        self.colors = [(73, 200 , 147)]
+
         self.imgs_metadata = pd.DataFrame(self.annotations['images'])
         self.imgs_metadata['sequence'] = self.imgs_metadata.apply(lambda x: x.file_name[3:6], axis=1)
         self.imgs_metadata['frame_id'] = self.imgs_metadata.apply(lambda x: x.file_name[6:].replace('.jpg', ''), axis=1)

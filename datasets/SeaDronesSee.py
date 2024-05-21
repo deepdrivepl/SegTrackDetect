@@ -74,6 +74,9 @@ class SeaDronesSeeDataset():
             print(f'Loading {self.coco_json}')
             with open(self.coco_json) as f:
                 self.annotations = json.load(f)
+
+        self.classes =  ["swimmer", "swimmer with life jacket", "boat", "life jacket"]
+        self.colors = [(203, 179, 11), (222, 135, 191), (40, 195, 132), (75, 140, 112)]
         
         self.imgs_metadata = self.get_metadata()
 

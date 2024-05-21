@@ -53,6 +53,9 @@ class ZebraFishDataset():
             print(f'Found {len(self.imgs)} images, {len(self.seqs)} sequences in {self.split}')
             print(f'Sequences: {self.seqs}')
 
+        self.classes = ['fish']
+        self.colors = [(206, 75, 25)]
+
         self.imgs_metadata = pd.DataFrame(self.annotations['images'])
         self.imgs_metadata['sequence'] = self.imgs_metadata.apply(lambda x: '_'.join([os.path.dirname(x.file_name).split(os.sep)[-2], os.path.dirname(x.file_name).split(os.sep)[-1]]), axis=1)
         self.imgs_metadata['frame_id'] = self.imgs_metadata.apply(lambda x: int(os.path.basename(x.file_name).replace('.jpg', '')), axis=1)
