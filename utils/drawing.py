@@ -13,7 +13,7 @@ def plot_mask(mask, image, alpha=0.4):
     mask = cv2.merge((mask, mask, mask))
     color = np.full(mask.shape, np.array([255, 144, 30]))
     
-    mask = np.where(mask==255, color, image).astype(np.uint8) # mask > 0 ?
+    mask = np.where(mask>0, color, image).astype(np.uint8)
     masked_image = cv2.addWeighted(image, alpha, mask, 1 - alpha, 0) 
     return masked_image
 
@@ -51,25 +51,25 @@ def draw_text(frame_numpy, text, x, y, color=(250,0,0), font='JetBrainsMono-Extr
     return np.array(frame_PIL)
 
 
-# draw rois (trks and seg), detection windows, and detections
-def make_vis(frame, roi_mask, roi_bboxes, trk_bboxes, det_bboxes, detections, classes, colors, vis_conf_th=0.3):
+
+def make_vis(frame, seg_mask, seg_bboxes, mot_bboxes, det_bboxes, detections, classes, colors, vis_conf_th=0.3):
     
-    if roi_mask is not None:
-        frame = plot_mask(roi_mask, frame)
+    if seg_mask is not None:
+        frame = plot_mask(seg_mask, frame)
 
 
     
     for det_bbox in det_bboxes:
         frame = plot_one_box(list(map(int, det_bbox)), frame, color=(0,0,180), label='WIN')     
-    for roi_bbox in roi_bboxes:
-        frame = plot_one_box(list(map(int, roi_bbox)), frame, color=(200,0,0), label='SEG')       
-    for trk_bbox in trk_bboxes:
-        frame = plot_one_box(list(map(int, trk_bbox)), frame, color=(0,200,0), label='MOT') 
+    for seg_bbox in seg_bboxes:
+        frame = plot_one_box(list(map(int, seg_bbox)), frame, color=(200,0,0), label='SEG')       
+    for mot_bbox in mot_bboxes:
+        frame = plot_one_box(list(map(int, mot_bbox)), frame, color=(0,200,0), label='MOT') 
     
         
     stats = [
-             "SEG  %02d" % (len(roi_bboxes)), 
-             "MOT  %02d" % (len(trk_bboxes)), 
+             "SEG  %02d" % (len(seg_bboxes)), 
+             "MOT  %02d" % (len(mot_bboxes)), 
              "WIN  %02d" % (len(det_bboxes))
             ]
     frame = draw_text(frame, "\n".join(stats), 20, 40, color=(255,255,255))

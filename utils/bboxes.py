@@ -10,21 +10,11 @@ from torchvision import transforms as T
 import torchvision.ops as ops
 
 
-def IBS(window_bbox, pred, H_orig, W_orig, th=10):
-    xmin, ymin, xmax, ymax =  window_bbox
-    if xmin!=0:
-        pred = pred[torch.abs(pred[:,0]-xmin.item()) > th]
-    if ymin!=0:
-        pred = pred[torch.abs(pred[:,1]-ymin.item()) > th]
-    if xmax!=W_orig:
-        pred = pred[torch.abs(pred[:,2]-xmax.item()) > th]
-    if ymax!=H_orig:
-        pred = pred[torch.abs(pred[:,3]-ymax.item()) > th] 
-    return pred
 
 def findBboxes(label, original_shape, current_shape):
     H,W = original_shape
     _H,_W = current_shape
+    label[label>0] = 255
     contours = cv2.findContours(label, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     contours = contours[0] if len(contours) == 2 else contours[1]
     
@@ -55,7 +45,7 @@ def getDetectionBboxes(bboxes, max_H, max_W, det_size=(960, 960), bbox_type='nai
 
 
 def isInsidePoint(bbox, point):
-    xmin, ymin, xmax, ymax = bbox[0]
+    xmin, ymin, xmax, ymax = bbox
     x, y = point
     if xmin<=x<=xmax and ymin<=y<=ymax:
         return True
@@ -108,13 +98,21 @@ def rot90points(x, y, hw):
     return y, hw[1] - 1 - x
     
     
-def getDetectionBbox(bbox,  max_H, max_W, det_size):
+# should return crop coordinates - resizing handled in a datataloader
+def getDetectionBbox(bbox, max_H, max_W, det_size):
     if rotate(bbox, det_size):
         w,h = det_size
     else:
         h,w = det_size
         
     xmin, ymin, xmax, ymax = bbox
+    h_roi, w_roi = ymax-ymin, xmax-xmin
+
+    if h_roi > h:
+        h = h_roi
+    if w_roi > w:
+        w = w_roi
+
     xc = (xmax+xmin)//2
     yc = (ymin+ymax)//2
 
@@ -123,8 +121,9 @@ def getDetectionBbox(bbox,  max_H, max_W, det_size):
 
     xmax = min(xmin+w, max_W)
     ymax = min(ymin+h, max_H)
-    return ([xmin,ymin,xmax,ymax], list(bbox)) # tuple(det_bbox, roi_bbox)
 
+    crop_bbox = [xmin, ymin, xmax, ymax]
+    return crop_bbox
                 
         
 def getDetectionBboxesAll(bboxes, max_H, max_W, det_size):
@@ -166,23 +165,6 @@ def getDetectionBboxesSorted(bboxes, max_H, max_W, det_size):
         bboxes = [bboxes[i] for i in hits.keys()]
         return getDetectionBboxesNaive(bboxes, max_H, max_W, det_size=det_size)
         
-        
-        
-def getSlidingWindowBBoxes(max_H, max_W, overlap_frac, det_size):
-    h,w = det_size
-    n_w = math.ceil(max_W / (w*(1-overlap_frac)))
-    n_h = math.ceil(max_H / (h*(1-overlap_frac)))
-
-    XS = [w*(1-overlap_frac)*n for n in range(n_w)]
-    YS = [h*(1-overlap_frac)*n for n in range(n_h)]
-
-    bboxes = []
-    for xmin in XS:
-        for ymin in YS:
-            xmin,ymin = [int(_) for _ in [xmin,ymin]]
-            xmax,ymax = min(xmin+w, max_W), min(ymin+h, max_H)
-            bboxes.append([xmin, ymin, xmax, ymax])
-    return bboxes
 
 
 def box_iou(box1, box2):

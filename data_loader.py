@@ -82,32 +82,42 @@ class WindowDetectionDataset(torch.utils.data.Dataset):
 
 
     def __getitem__(self, idx):
-        # img = letterbox(img, self.size, auto=False, scaleup=False)[0]
-        xmin, ymin, xmax, ymax = map(int, self.bboxes[idx])
-        h_window, w_window = ymax-ymin, xmax-xmin # vertical or horizontal
 
-        if (h_window > w_window and self.size[0] > self.size[1]) or (h_window <= w_window and self.size[0] <= self.size[1]):
+        # handle cropping
+        xmin, ymin, xmax, ymax = map(int, self.bboxes[idx])
+        roi_h, roi_w = ymax-ymin, xmax-xmin # vertical or horizontal
+        crop_image = self.image[ymin:ymax,xmin:xmax,:]
+
+        # rotate if needed
+        if (roi_h > roi_w and self.size[0] > self.size[1]) or (roi_h <= roi_w and self.size[0] <= self.size[1]):
             rotate = False
         else:
             rotate = True
-            
-        color=(114, 114, 114)
-        img_in = np.full((*self.size, 3), color).astype(np.uint8)
-        if not rotate:
-            img_in[:h_window,:w_window,...] = self.image[ymin:ymax,xmin:xmax,:]
-        else:
-            im = cv2.rotate(self.image[ymin:ymax,xmin:xmax,:], cv2.ROTATE_90_CLOCKWISE)
-            img_in[:w_window,:h_window,...] = im
-            
-        xmin,ymin,xmax,ymax = self.bboxes[idx]
+
+        if rotate:
+            crop_image = cv2.rotate(crop_image, cv2.ROTATE_90_CLOCKWISE)
+
+        # resize if needed
+        det_h, det_w = self.size
+        crop_h, crop_w = crop_image.shape[:2]
+        if crop_h > det_h or crop_w > det_w: # resize
+            print('resize')
+            crop_image = cv2.resize(crop_image, (det_w, det_h))
+            crop_h, crop_w = crop_image.shape[:2]
+
+        img_in = np.full((*self.size, 3), (114, 114, 114)).astype(np.uint8)
+        img_in[:crop_h,:crop_w,...] = crop_image
+
         
         metadata = {
             'bbox': self.bboxes[idx], 
-            'translate': torch.tensor([xmin, ymin, xmin, ymin]),  
+            'translate': torch.tensor([xmin, ymin, xmin, ymin]),
             'image_path': self.path, 
             'rotation': rotate, 
-            'shape': torch.tensor([h_window, w_window]),
-            'coco': self.dataset.get_image_metadata(self.path)
+            'det_shape': torch.tensor([det_h, det_w]), 
+            'crop_shape': torch.tensor([crop_h, crop_w]), 
+            'coco': self.dataset.get_image_metadata(self.path),
+            'roi_shape': torch.tensor([roi_h, roi_w]),
         }
 
         return self.transform(img_in), metadata

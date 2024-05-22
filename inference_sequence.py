@@ -18,9 +18,9 @@ from data_loader import SingleDetectionDataset, ROIDataset, WindowDetectionDatas
 from configs import DET_MODELS, ROI_MODELS, TRACKERS
 from datasets import DATASETS
 
-from utils.bboxes import getDetectionBboxes, getSlidingWindowBBoxes, NMS, non_max_suppression,scale_coords, xyxy2xywh, findBboxes, rot90points
-from utils.general import create_directory, save_args, load_model
-from utils.drawing import make_vis
+from utils.bboxes import getDetectionBboxes, NMS, non_max_suppression,scale_coords, xyxy2xywh, findBboxes, rot90points
+from utils.general import save_args, load_model
+from utils.drawing import make_vis, plot_one_box
 from utils.obs import OBS_SORT_TYPES
     
         
@@ -117,8 +117,8 @@ if __name__ == '__main__':
                 original_shape = (H_orig, W_orig)
 
 
-                roi_bboxes, trk_bboxes, det_bboxes = np.empty((0,4)), np.empty((0,4)), np.empty((0,4))
-                d0_fullres = None
+                seg_bboxes, mot_bboxes, det_bboxes = np.empty((0,4)), np.empty((0,4)), np.empty((0,4))
+                seg_mask_fullres = None
                 
                     
                 if args.mode == 'track' and i < args.frame_delay: # single det (for frame_delay frames) to initialize the tracker
@@ -164,7 +164,7 @@ if __name__ == '__main__':
                         )
                     if args.debug:
                         frame = cv2.imread(metadata['image_path'][0])
-                        frame = make_vis(frame, d0_fullres, roi_bboxes, trk_bboxes, det_bboxes, out, ds.classes, ds.colors, args.vis_conf_th)
+                        frame = make_vis(frame, seg_mask_fullres, seg_bboxes, mot_bboxes, det_bboxes, out, ds.classes, ds.colors, args.vis_conf_th)
                         out_fname = f"{debug_dir}/{os.path.basename(metadata['image_path'][0])}"
                         if os.path.isfile(out_fname): # non-unique names
                             seq = ds.imgs_metadata[ds.imgs_metadata.file_name==metadata['image_path'][0]].iloc[0]
@@ -174,21 +174,22 @@ if __name__ == '__main__':
                     continue # do not run the window detection, just track for frame_delay frames 
 
                 elif 'roi' in args.mode: # predict ROIs
-                    d0 = net_roi(img.to(device))
-                    d0_fullres, d0 = cfg_roi["postprocess"](d0, original_shape, cfg_roi["sigmoid_included"], cfg_roi["thresh"])
+                    seg_mask = net_roi(img.to(device))
+                    seg_mask_fullres, seg_mask = cfg_roi["postprocess"](seg_mask, original_shape, cfg_roi["sigmoid_included"], cfg_roi["thresh"])
 
                     if args.dilate:
                         kernel = np.ones((args.k_size, args.k_size), np.uint8)
-                        d0 = cv2.dilate(d0, kernel, iterations = args.iter)
+                        seg_mask = cv2.dilate(seg_mask, kernel, iterations = args.iter)
+                        seg_mask_fullres = cv2.resize(seg_mask, (W_orig, H_orig))
 
-                    roi_bboxes = findBboxes(d0, original_shape, d0.shape)
+                    seg_bboxes = findBboxes(seg_mask, original_shape, seg_mask.shape)
 
                 if 'track' in args.mode:
                     trks = tracker.get_pred_locations()
                     if i >= args.frame_delay:
-                        trk_bboxes = trks[:,:-1]
+                        mot_bboxes = trks[:,:-1]
 
-                merged_bboxes = np.concatenate((roi_bboxes, trk_bboxes), axis=0)
+                merged_bboxes = np.concatenate((seg_bboxes, mot_bboxes), axis=0)
 
                 det_bboxes = getDetectionBboxes(
                     merged_bboxes, 
@@ -196,13 +197,12 @@ if __name__ == '__main__':
                     det_size=cfg_det['in_size'], 
                     bbox_type=args.bbox_type
                 )
-                bboxes_roi = np.array([x[1] for x in det_bboxes]).astype(np.int32)
-                det_bboxes = np.array([x[0] for x in det_bboxes]).astype(np.int32)
+
+                det_bboxes = np.array(det_bboxes).astype(np.int32)
                 
                 if len(det_bboxes) > 0:
                     indices = np.nonzero(((det_bboxes[:,2]-det_bboxes[:,0]) > 0) & ((det_bboxes[:,3]-det_bboxes[:,1]) > 0))
                     indices = indices[0]
-                    bboxes_roi = bboxes_roi[indices, :]
                     det_bboxes = det_bboxes[indices, :]
 
                 det_dataset =  WindowDetectionDataset(metadata['image_path'][0], ds, det_bboxes, cfg_det['in_size'])
@@ -233,15 +233,16 @@ if __name__ == '__main__':
                             det_metadata['bbox'][si].repeat(len(pred),1)
                         ))
 
-                        # pred[:,:4] = pred[:,:4]*det_metadata['resize'][si].to(device)
+                        pred[:,:4] = scale_coords(det_metadata['det_shape'][si], pred[:,:4], det_metadata['crop_shape'][si])
                         if det_metadata['rotation'][si].item():
-                            h_window, w_window = det_metadata['shape'][si]
+                            h_window, w_window = det_metadata['roi_shape'][si]
                             xmin_, ymax_ = rot90points(pred[:,0], pred[:,1], [w_window.item(),h_window.item()])
                             xmax_, ymin_ = rot90points(pred[:,2], pred[:,3], [w_window.item(),h_window.item()])
                             pred[:,0] = xmin_
                             pred[:,1] = ymin_
                             pred[:,2] = xmax_
                             pred[:,3] = ymax_
+
                         pred[:,:4] = pred[:,:4] + det_metadata['translate'][si].to(device) # to the coordinates of the original image
           
   
@@ -265,7 +266,7 @@ if __name__ == '__main__':
                 
                 if args.debug:
                     frame = cv2.imread(metadata['image_path'][0])
-                    frame = make_vis(frame, d0_fullres, roi_bboxes, trk_bboxes, det_bboxes, img_out.detach().cpu().numpy(), ds.classes, ds.colors, args.vis_conf_th)
+                    frame = make_vis(frame, seg_mask_fullres, seg_bboxes, mot_bboxes, det_bboxes, img_out.detach().cpu().numpy(), ds.classes, ds.colors, args.vis_conf_th)
                     out_fname = f"{debug_dir}/{os.path.basename(metadata['image_path'][0])}"
                     if os.path.isfile(out_fname): # non-unique names
                         seq = ds.imgs_metadata[ds.imgs_metadata.file_name==metadata['image_path'][0]].iloc[0]
