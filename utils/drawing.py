@@ -54,27 +54,11 @@ def draw_text(frame_numpy, text, x, y, color=(250,0,0), font='JetBrainsMono-Extr
 
 def make_vis(frame, seg_mask, seg_bboxes, mot_bboxes, det_bboxes, detections, classes, colors, vis_conf_th=0.3):
     
-    if seg_mask is not None:
-        frame = plot_mask(seg_mask, frame)
-
-
-    
     for det_bbox in det_bboxes:
-        frame = plot_one_box(list(map(int, det_bbox)), frame, color=(0,0,180), label='WIN')     
-    for seg_bbox in seg_bboxes:
-        frame = plot_one_box(list(map(int, seg_bbox)), frame, color=(200,0,0), label='SEG')       
-    for mot_bbox in mot_bboxes:
-        frame = plot_one_box(list(map(int, mot_bbox)), frame, color=(0,200,0), label='MOT') 
-    
-        
-    stats = [
-             "SEG  %02d" % (len(seg_bboxes)), 
-             "MOT  %02d" % (len(mot_bboxes)), 
-             "WIN  %02d" % (len(det_bboxes))
-            ]
-    frame = draw_text(frame, "\n".join(stats), 20, 40, color=(255,255,255))
+        frame = plot_one_box(list(map(int, det_bbox)), frame, color=(0,0,180), label='WIN') 
 
-    
+
+    frame_wins = frame.copy()  
     detections = detections[detections[:, -2] >= vis_conf_th]
     for det in detections.tolist():
         xmin,ymin,xmax,ymax,conf,cls = det
@@ -84,5 +68,25 @@ def make_vis(frame, seg_mask, seg_bboxes, mot_bboxes, det_bboxes, detections, cl
             color=colors[int(cls)], 
             label=f'{classes[int(cls)]} {int(conf*100)}%'
         )
+
+
+    if seg_mask is not None:
+        frame_wins = plot_mask(seg_mask, frame_wins)
+      
+    for seg_bbox in seg_bboxes:
+        frame_wins = plot_one_box(list(map(int, seg_bbox)), frame_wins, color=(200,0,0), label='SEG')       
+    for mot_bbox in mot_bboxes:
+        frame_wins = plot_one_box(list(map(int, mot_bbox)), frame_wins, color=(0,200,0), label='MOT') 
     
-    return frame
+        
+    stats = [
+             "SEG  %02d" % (len(seg_bboxes)), 
+             "MOT  %02d" % (len(mot_bboxes)), 
+             "WIN  %02d" % (len(det_bboxes))
+            ]
+    frame_wins = draw_text(frame_wins, "\n".join(stats), 20, 40, color=(255,255,255))
+
+    
+    
+    
+    return frame_wins, frame

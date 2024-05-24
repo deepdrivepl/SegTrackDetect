@@ -72,8 +72,9 @@ if __name__ == '__main__':
     save_args(out_dir, args)
 
     if args.debug:
-        debug_dir = f'{args.out_dir}/vis'
-        os.makedirs(debug_dir, exist_ok=True)
+        windows_dir = f'{args.out_dir}/vis-windows'
+        detections_dir = f'{args.out_dir}/vis-detections'
+        os.makedirs(windows_dir, exist_ok=True); os.makedirs(detections_dir, exist_ok=True)
     
     
     # get models
@@ -122,10 +123,8 @@ if __name__ == '__main__':
                 
                     
                 if args.mode == 'track' and i < args.frame_delay: # single det (for frame_delay frames) to initialize the tracker
-                    print(i, args.frame_delay)
                     out = net_det(img.to(device))
                     out = cfg_det["postprocess"](out)
-
                     out = non_max_suppression(
                         out, 
                         conf_thres = cfg_det['conf_thresh'], 
@@ -162,14 +161,17 @@ if __name__ == '__main__':
                             }
                             
                         )
+
                     if args.debug:
                         frame = cv2.imread(metadata['image_path'][0])
-                        frame = make_vis(frame, seg_mask_fullres, seg_bboxes, mot_bboxes, det_bboxes, out, ds.classes, ds.colors, args.vis_conf_th)
-                        out_fname = f"{debug_dir}/{os.path.basename(metadata['image_path'][0])}"
-                        if os.path.isfile(out_fname): # non-unique names
+                        frame, frame_dets = make_vis(frame, seg_mask_fullres, seg_bboxes, mot_bboxes, det_bboxes, out, ds.classes, ds.colors, args.vis_conf_th)
+                        out_fname_wins = f"{windows_dir}/{os.path.basename(metadata['image_path'][0])}"
+                        out_fname_dets = f"{detections_dir}/{os.path.basename(metadata['image_path'][0])}"
+                        if os.path.isfile(out_fname_wins): # non-unique names
                             seq = ds.imgs_metadata[ds.imgs_metadata.file_name==metadata['image_path'][0]].iloc[0]
-                            out_fname = f"{debug_dir}/{seq}_{os.path.basename(metadata['image_path'][0])}"
-                        cv2.imwrite(out_fname, frame)
+                            out_fname_wins = f"{windows_dir}/{seq}_{os.path.basename(metadata['image_path'][0])}"
+                            out_fname_dets = f"{detections_dir}/{seq}_{os.path.basename(metadata['image_path'][0])}"
+                        cv2.imwrite(out_fname_wins, frame); cv2.imwrite(out_fname_dets, frame_dets)
                         
                     continue # do not run the window detection, just track for frame_delay frames 
 
@@ -266,12 +268,14 @@ if __name__ == '__main__':
                 
                 if args.debug:
                     frame = cv2.imread(metadata['image_path'][0])
-                    frame = make_vis(frame, seg_mask_fullres, seg_bboxes, mot_bboxes, det_bboxes, img_out.detach().cpu().numpy(), ds.classes, ds.colors, args.vis_conf_th)
-                    out_fname = f"{debug_dir}/{os.path.basename(metadata['image_path'][0])}"
-                    if os.path.isfile(out_fname): # non-unique names
+                    frame, frame_dets = make_vis(frame, seg_mask_fullres, seg_bboxes, mot_bboxes, det_bboxes, img_out, ds.classes, ds.colors, args.vis_conf_th)
+                    out_fname_wins = f"{windows_dir}/{os.path.basename(metadata['image_path'][0])}"
+                    out_fname_dets = f"{detections_dir}/{os.path.basename(metadata['image_path'][0])}"
+                    if os.path.isfile(out_fname_wins): # non-unique names
                         seq = ds.imgs_metadata[ds.imgs_metadata.file_name==metadata['image_path'][0]].iloc[0]
-                        out_fname = f"{debug_dir}/{seq}_{os.path.basename(metadata['image_path'][0])}"
-                    cv2.imwrite(out_fname, frame)
+                        out_fname_wins = f"{windows_dir}/{seq}_{os.path.basename(metadata['image_path'][0])}"
+                        out_fname_dets = f"{detections_dir}/{seq}_{os.path.basename(metadata['image_path'][0])}"
+                    cv2.imwrite(out_fname_wins, frame); cv2.imwrite(out_fname_dets, frame_dets)
                 
                 img_out[:,:4] = xyxy2xywh(img_out[:,:4])
                 for p in img_out.tolist():

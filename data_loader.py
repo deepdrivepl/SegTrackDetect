@@ -24,6 +24,7 @@ class SingleDetectionDataset(torch.utils.data.Dataset):
 
     def __getitem__(self, idx):
         img = cv2.imread(self.paths[idx])
+        img = np.ascontiguousarray(img[:, :, ::-1])
         h,w = img.shape[:2]
         
         img = self.det_transform(img)
@@ -33,6 +34,7 @@ class SingleDetectionDataset(torch.utils.data.Dataset):
             "coco": self.dataset.get_image_metadata(self.paths[idx])
         }
         return img, metadata
+
         
         
 
