@@ -168,7 +168,7 @@ if __name__ == '__main__':
                         out_fname_wins = f"{windows_dir}/{os.path.basename(metadata['image_path'][0])}"
                         out_fname_dets = f"{detections_dir}/{os.path.basename(metadata['image_path'][0])}"
                         if os.path.isfile(out_fname_wins): # non-unique names
-                            seq = ds.imgs_metadata[ds.imgs_metadata.file_name==metadata['image_path'][0]].iloc[0]
+                            seq = ds.imgs_metadata[ds.imgs_metadata.file_name==metadata['image_path'][0]].sequence.iloc[0]
                             out_fname_wins = f"{windows_dir}/{seq}_{os.path.basename(metadata['image_path'][0])}"
                             out_fname_dets = f"{detections_dir}/{seq}_{os.path.basename(metadata['image_path'][0])}"
                         cv2.imwrite(out_fname_wins, frame); cv2.imwrite(out_fname_dets, frame_dets)
@@ -272,7 +272,7 @@ if __name__ == '__main__':
                     out_fname_wins = f"{windows_dir}/{os.path.basename(metadata['image_path'][0])}"
                     out_fname_dets = f"{detections_dir}/{os.path.basename(metadata['image_path'][0])}"
                     if os.path.isfile(out_fname_wins): # non-unique names
-                        seq = ds.imgs_metadata[ds.imgs_metadata.file_name==metadata['image_path'][0]].iloc[0]
+                        seq = ds.imgs_metadata[ds.imgs_metadata.file_name==metadata['image_path'][0]].sequence.iloc[0]
                         out_fname_wins = f"{windows_dir}/{seq}_{os.path.basename(metadata['image_path'][0])}"
                         out_fname_dets = f"{detections_dir}/{seq}_{os.path.basename(metadata['image_path'][0])}"
                     cv2.imwrite(out_fname_wins, frame); cv2.imwrite(out_fname_dets, frame_dets)
