@@ -5,6 +5,7 @@ import numpy as np
 
 import torch
 from torchvision import transforms as T
+from utils.bboxes import letterbox
 
 
 class SingleDetectionDataset(torch.utils.data.Dataset):
@@ -96,28 +97,33 @@ class WindowDetectionDataset(torch.utils.data.Dataset):
         else:
             rotate = True
 
-        if rotate:
+        if rotate: # same orientation as the detection window
             crop_image = cv2.rotate(crop_image, cv2.ROTATE_90_CLOCKWISE)
 
         # resize if needed
         det_h, det_w = self.size
         crop_h, crop_w = crop_image.shape[:2]
-        if crop_h > det_h or crop_w > det_w: # resize
-            print('resize')
-            crop_image = cv2.resize(crop_image, (det_w, det_h))
-            crop_h, crop_w = crop_image.shape[:2]
+        resize = False
+        unpadded = [0.0,0.0]
+        if crop_h > det_h or crop_w > det_w:
+            resize = True
+            # crop_image = cv2.resize(crop_image, (det_w, det_h))
+            crop_image, (unpadded) = letterbox(crop_image, (det_h, det_w), auto=False)
+        paste_h, paste_w = crop_image.shape[:2]
 
         img_in = np.full((*self.size, 3), (114, 114, 114)).astype(np.uint8)
-        img_in[:crop_h,:crop_w,...] = crop_image
+        img_in[:paste_h,:paste_w,...] = crop_image
 
         
         metadata = {
             'bbox': self.bboxes[idx], 
-            'translate': torch.tensor([xmin, ymin, xmin, ymin]),
+            'translate': torch.tensor([xmin, ymin, xmin, ymin]).float() ,
             'image_path': self.path, 
             'rotation': rotate, 
+            'resize': resize,
             'det_shape': torch.tensor([det_h, det_w]), 
             'crop_shape': torch.tensor([crop_h, crop_w]), 
+            'unpadded_shape': torch.tensor([unpadded[0], unpadded[1]]).long() ,
             'coco': self.dataset.get_image_metadata(self.path),
             'roi_shape': torch.tensor([roi_h, roi_w]),
         }
