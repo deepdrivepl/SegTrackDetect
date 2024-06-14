@@ -42,8 +42,8 @@ if __name__ == '__main__':
 
     # ROI
     parser.add_argument('--dilate', default=False, action='store_true')
-    parser.add_argument('--k_size', type=int, default=7)
-    parser.add_argument('--iter', type=int, default=2)
+    parser.add_argument('--k_size', type=int, default=3)
+    parser.add_argument('--iter', type=int, default=1)
     parser.add_argument('--bbox_type', type=str, default='sorted', choices=['all', 'naive', 'sorted'])
     # NMS
     parser.add_argument('--second_nms', default=False, action='store_true')
@@ -59,6 +59,7 @@ if __name__ == '__main__':
     parser.add_argument('--vis_conf_th', type=float, default=0.3)
     # tracker
     parser.add_argument('--frame_delay', type=int, default=3)
+    parser.add_argument('--binary_trk', default=False, action='store_true')
     
     parser.add_argument('--obs_type', type=str, choices=['iou', 'conf', 'area', 'all', 'none'], default='all')
     parser.add_argument('--obs_iou_th', type=float, default=0.7)
@@ -101,6 +102,7 @@ if __name__ == '__main__':
     # inference
     annotations = []
     for seq_name, seq_flist in seq2images.items():
+        seq_flist = sorted(seq_flist)
         if 'roi' in args.mode:
             dataset = ROIDataset(seq_flist, ds, cfg_roi["in_size"], cfg_roi["transform"])
             dataloader = DataLoader(dataset, batch_size=1, shuffle=False, num_workers=4)
@@ -109,7 +111,6 @@ if __name__ == '__main__':
             dataloader = DataLoader(dataset, batch_size=1, shuffle=False, num_workers=4)
 
         tracker = (trk_class)(**cfg_trk['args'])
-
         with torch.no_grad():
             for i, (img, metadata) in tqdm(enumerate(dataloader)):
 
@@ -165,33 +166,47 @@ if __name__ == '__main__':
                     if args.debug:
                         frame = cv2.imread(metadata['image_path'][0])
                         frame, frame_dets = make_vis(frame, seg_mask_fullres, seg_bboxes, mot_bboxes, det_bboxes, out, ds.classes, ds.colors, args.vis_conf_th)
-                        out_fname_wins = f"{windows_dir}/{os.path.basename(metadata['image_path'][0])}"
-                        out_fname_dets = f"{detections_dir}/{os.path.basename(metadata['image_path'][0])}"
-                        if os.path.isfile(out_fname_wins): # non-unique names
-                            seq = ds.imgs_metadata[ds.imgs_metadata.file_name==metadata['image_path'][0]].sequence.iloc[0]
-                            out_fname_wins = f"{windows_dir}/{seq}_{os.path.basename(metadata['image_path'][0])}"
-                            out_fname_dets = f"{detections_dir}/{seq}_{os.path.basename(metadata['image_path'][0])}"
+                        out_fname_wins = f"{windows_dir}/{seq_name}/{os.path.basename(metadata['image_path'][0])}"
+                        out_fname_dets = f"{detections_dir}/{seq_name}/{os.path.basename(metadata['image_path'][0])}"
+                        os.makedirs(os.path.dirname(out_fname_wins), exist_ok=True); os.makedirs(os.path.dirname(out_fname_dets), exist_ok=True)
                         cv2.imwrite(out_fname_wins, frame); cv2.imwrite(out_fname_dets, frame_dets)
                         
                     continue # do not run the window detection, just track for frame_delay frames 
 
                 elif 'roi' in args.mode: # predict ROIs
                     seg_mask = net_roi(img.to(device))
-                    seg_mask_fullres, seg_mask = cfg_roi["postprocess"](seg_mask, original_shape, cfg_roi["sigmoid_included"], cfg_roi["thresh"])
-
-                    if args.dilate:
-                        kernel = np.ones((args.k_size, args.k_size), np.uint8)
-                        seg_mask = cv2.dilate(seg_mask, kernel, iterations = args.iter)
-                        seg_mask_fullres = cv2.resize(seg_mask, (W_orig, H_orig))
+                    seg_mask_fullres, seg_mask = cfg_roi["postprocess"](seg_mask, original_shape, cfg_roi["sigmoid_included"], cfg_roi["thresh"], args.dilate, args.k_size, args.iter)
 
                     seg_bboxes = findBboxes(seg_mask, original_shape, seg_mask.shape)
+                    merged_bboxes = seg_bboxes
 
                 if 'track' in args.mode:
                     trks = tracker.get_pred_locations()
                     if i >= args.frame_delay:
+
                         mot_bboxes = trks[:,:-1]
 
-                merged_bboxes = np.concatenate((seg_bboxes, mot_bboxes), axis=0)
+                        mot_bboxes[:,0] = np.where(mot_bboxes[:,0] < 0, 0, mot_bboxes[:,0])
+                        mot_bboxes[:,1] = np.where(mot_bboxes[:,1] < 0, 0, mot_bboxes[:,1])
+                        mot_bboxes[:,2] = np.where(mot_bboxes[:,2] >= W_orig, W_orig-1, mot_bboxes[:,2])
+                        mot_bboxes[:,3] = np.where(mot_bboxes[:,3] >= H_orig, H_orig-1, mot_bboxes[:,3])
+
+                        indices = np.nonzero(((mot_bboxes[:,2]-mot_bboxes[:,0]) > 0) & ((mot_bboxes[:,3]-mot_bboxes[:,1]) > 0))
+                        mot_bboxes = mot_bboxes[indices[0], :]
+                        # print(trks[:,:-1].shape, mot_bboxes.shape)
+
+                    if args.binary_trk:
+                        mot_mask = np.zeros(seg_mask_fullres.shape, dtype=np.uint8)
+                        for mot_bbox in mot_bboxes:
+                            xmin,ymin,xmax,ymax = map(int, mot_bbox[:4])
+                            mot_mask[ymin:ymax+1, xmin:xmax+1] = 255
+                        mask_h,mask_w = seg_mask.shape[:2]
+                        mot_mask = cv2.resize(mot_mask, (mask_w, mask_h))
+                        seg_mask = np.logical_or(seg_mask, mot_mask).astype(np.uint8)*255
+
+                        merged_bboxes = findBboxes(seg_mask, original_shape, seg_mask.shape)
+                    else:
+                        merged_bboxes = np.concatenate((seg_bboxes, mot_bboxes), axis=0)
 
                 det_bboxes = getDetectionBboxes(
                     merged_bboxes, 
@@ -212,10 +227,10 @@ if __name__ == '__main__':
 
                 img_out = torch.empty((0, 6))
                 win_out = torch.empty((0, 4))
+
                 for j, (img_det, det_metadata) in enumerate(det_dataloader):
                     out = net_det(img_det.to(device))
                     out = cfg_det["postprocess"](out)
-                    # print(out.shape)
                     out = non_max_suppression(
                         out, 
                         conf_thres = cfg_det['conf_thresh'], 
@@ -235,7 +250,11 @@ if __name__ == '__main__':
                             det_metadata['bbox'][si].repeat(len(pred),1)
                         ))
 
-                        pred[:,:4] = scale_coords(det_metadata['det_shape'][si], pred[:,:4], det_metadata['crop_shape'][si])
+                        if det_metadata['resize'][si].item():
+
+                            pred[:,:4] = scale_coords(det_metadata['unpadded_shape'][si], pred[:, :4], det_metadata['crop_shape'][si])
+                            # pred[:,:4] = scale_coords(det_metadata['det_shape'][si], pred[:,:4], det_metadata['crop_shape'][si])
+
                         if det_metadata['rotation'][si].item():
                             h_window, w_window = det_metadata['roi_shape'][si]
                             xmin_, ymax_ = rot90points(pred[:,0], pred[:,1], [w_window.item(),h_window.item()])
@@ -255,9 +274,13 @@ if __name__ == '__main__':
 
                 win_out = win_out.to(device)
                 img_out = img_out.to(device)
+
                 if args.second_nms and img_out is not None:
                     img_out, win_out = NMS(img_out, win_out, iou_thres=cfg_det["iou_thresh"], redundant=args.redundant, merge=args.merge, max_det=args.max_det, agnostic=args.agnostic)
                     
+                win_out = win_out[~torch.any(img_out.isnan(),dim=1)]
+                img_out = img_out[~torch.any(img_out.isnan(),dim=1)]
+
                 # OBS
                 win_out, img_out = filter_fn(win_out, img_out, th=args.obs_iou_th)
                     
@@ -269,12 +292,9 @@ if __name__ == '__main__':
                 if args.debug:
                     frame = cv2.imread(metadata['image_path'][0])
                     frame, frame_dets = make_vis(frame, seg_mask_fullres, seg_bboxes, mot_bboxes, det_bboxes, img_out, ds.classes, ds.colors, args.vis_conf_th)
-                    out_fname_wins = f"{windows_dir}/{os.path.basename(metadata['image_path'][0])}"
-                    out_fname_dets = f"{detections_dir}/{os.path.basename(metadata['image_path'][0])}"
-                    if os.path.isfile(out_fname_wins): # non-unique names
-                        seq = ds.imgs_metadata[ds.imgs_metadata.file_name==metadata['image_path'][0]].sequence.iloc[0]
-                        out_fname_wins = f"{windows_dir}/{seq}_{os.path.basename(metadata['image_path'][0])}"
-                        out_fname_dets = f"{detections_dir}/{seq}_{os.path.basename(metadata['image_path'][0])}"
+                    out_fname_wins = f"{windows_dir}/{seq_name}/{os.path.basename(metadata['image_path'][0])}"
+                    out_fname_dets = f"{detections_dir}/{seq_name}/{os.path.basename(metadata['image_path'][0])}"
+                    os.makedirs(os.path.dirname(out_fname_wins), exist_ok=True); os.makedirs(os.path.dirname(out_fname_dets), exist_ok=True)
                     cv2.imwrite(out_fname_wins, frame); cv2.imwrite(out_fname_dets, frame_dets)
                 
                 img_out[:,:4] = xyxy2xywh(img_out[:,:4])
