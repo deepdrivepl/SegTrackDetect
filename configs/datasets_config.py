@@ -1,12 +1,13 @@
 ZeF20 = dict(
     cat2label = {'fish': 0},
-    root_dir = '/home/kos/projects/PhD/ZebraFish/data/3DZeF20',
+    root_dir = '/tinyROI/data/3DZeF20',
     train_list = "data/ZeF20/train-new-trainval-split.txt",
     val_list = "data/ZeF20/val-new-trainval-split.txt",
     test_list = "data/ZeF20/test.txt",
     seq_pos = -3,
     sec_seq_pos = -2,
-    img_ext = "jpg"
+    img_ext = "jpg",
+    images2id = "data/ZeF20/fname2id-trainval.json"
 )
 
 
