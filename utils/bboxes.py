@@ -26,9 +26,11 @@ def findBboxes(label, original_shape, current_shape):
         x,y,w,h = cv2.boundingRect(cntr)
         xmin, ymin = (x/_W)*W, (y/_H)*H
         xmax, ymax = ((x+w)/_W)*W, ((y+h)/_H)*H
+
+        xmin, ymin = max(0, int(xmin)), max(0, int(ymin))
+        xmax, ymax = min(W, int(xmax)), min(H, int(ymax))
         
-        bbox = [int(x) for x in [xmin,ymin,xmax,ymax]]
-        bboxes.append(bbox)
+        bboxes.append([xmin,ymin,xmax,ymax])
     return np.array(bboxes)
 
 
@@ -99,7 +101,7 @@ def rot90points(x, y, hw):
     
     
 # should return crop coordinates - resizing handled in a datataloader
-def getDetectionBbox(bbox, max_H, max_W, det_size):
+def getDetectionBbox(bbox, max_H, max_W, det_size, padding=10):
     if rotate(bbox, det_size):
         w,h = det_size
     else:
@@ -108,10 +110,10 @@ def getDetectionBbox(bbox, max_H, max_W, det_size):
     xmin, ymin, xmax, ymax = bbox
     h_roi, w_roi = ymax-ymin, xmax-xmin
 
-    if h_roi > h:
-        h = h_roi
+    if h_roi > h: # padding - keep some space between returned roi and the detection window 
+        h = h_roi + padding 
     if w_roi > w:
-        w = w_roi
+        w = w_roi + padding
 
     xc = (xmax+xmin)//2
     yc = (ymin+ymax)//2
@@ -164,7 +166,30 @@ def getDetectionBboxesSorted(bboxes, max_H, max_W, det_size):
         hits = dict(sorted(hits.items(), key=lambda item: item[1], reverse=True))
         bboxes = [bboxes[i] for i in hits.keys()]
         return getDetectionBboxesNaive(bboxes, max_H, max_W, det_size=det_size)
-        
+
+
+
+# based on https://github.com/WongKinYiu/yolov7
+def letterbox(img, new_shape=(640, 640), color=(114, 114, 114), auto=True, scaleFill=False, scaleup=True, stride=64):
+    
+    shape = img.shape[:2]  # orig hw
+    if isinstance(new_shape, int):
+        new_shape = (new_shape, new_shape)
+
+    # Scale ratio (new / old)
+    r = min(new_shape[0] / shape[0], new_shape[1] / shape[1])
+    # if not scaleup:  
+    r = min(r, 1.0) # only scale down, do not scale up (for better test mAP)
+
+    # Compute padding
+    ratio = r, r  # width, height ratios
+    new_unpad = int(round(shape[1] * r)), int(round(shape[0] * r))
+    
+    img_in = np.full((*new_shape, 3), color).astype(np.uint8)
+    img_in[:new_unpad[1],:new_unpad[0],...] = cv2.resize(img, new_unpad, interpolation=cv2.INTER_LINEAR)
+    # print(img_in.shape, new_unpad)
+    return img_in, new_unpad[::-1]
+    
 
 
 def box_iou(box1, box2):
