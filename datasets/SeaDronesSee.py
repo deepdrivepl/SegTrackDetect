@@ -54,9 +54,9 @@ class SeaDronesSeeDataset():
             with open(anno_path) as f:
                 self.orig_annos = json.load(f)
 
-        self.seqs = list(set([os.path.splitext(os.path.basename(x['name:']))[0] for x in self.orig_annos['videos']])) 
-        if self.split == 'train' and 'DJI_0003_d3' not in self.seqs:
-            self.seqs+=['DJI_0003_d3'] # fix
+        self.seqs = list(set([x['id'] for x in self.orig_annos['videos']])) 
+        if self.split == 'train' and 20 not in self.seqs:
+            self.seqs+=[20] # fix
         print(f'Found {len(self.imgs)} images, {len(self.seqs)} sequences in {self.split}')
         print(f'Sequences: {self.seqs}')
         
@@ -79,6 +79,9 @@ class SeaDronesSeeDataset():
         self.colors = [(203, 179, 11), (222, 135, 191), (40, 195, 132), (75, 140, 112)]
         
         self.imgs_metadata = self.get_metadata()
+        self.validate_sequences()
+        self.seqs = self.imgs_metadata.sequence.unique().tolist()
+        print(f'New split: {len(self.imgs)} images, {len(self.seqs)} sequences in {self.split}')
 
         self.seq2imgs = {seq:[] for seq in self.seqs}
         for img_path in self.imgs:
@@ -106,16 +109,44 @@ class SeaDronesSeeDataset():
 
 
     def get_metadata(self):
-        id2vid = {x['id']: os.path.splitext(os.path.basename(x['name:']))[0] for x in self.orig_annos['videos']}
-        id2vid[20] = 'DJI_0003_d3' # train set fix, DJI_0003_d3 absent in annotations['videos']
         coco_metadata = pd.DataFrame(self.annotations['images'])
         orig_metadata = pd.DataFrame(self.orig_annos['images'])
-
         merged = pd.merge(coco_metadata, orig_metadata, on="id")
         
-        coco_metadata['sequence'] = merged.apply(lambda x: id2vid[x.video_id], axis=1)
+        coco_metadata['sequence'] = merged.apply(lambda x: x.video_id, axis=1)
         coco_metadata['frame_id'] = merged['frame_index']
+
         return coco_metadata
+
+
+    def validate_sequences(self):
+        unique_sequences = self.imgs_metadata.sequence.unique()
+
+        dfs = []
+        for unique_sequence in unique_sequences:
+            seq_df = self.imgs_metadata[self.imgs_metadata.sequence == unique_sequence]
+            seq_df = seq_df.sort_values(by='frame_id')
+            seq_df = seq_df.reset_index()
+
+            prev_frame, current_frame = None, None
+            seq_id = 1
+            for i in range(len(seq_df)):
+                current_frame = seq_df.iloc[i].frame_id
+
+                if prev_frame is None:
+                    prev_frame = current_frame
+                    continue
+
+                if current_frame - prev_frame != 1:
+                    current_name = f'{unique_sequence}_{seq_id:03d}'
+                    seq_df.loc[i:,'sequence'] = current_name
+                    seq_id+=1
+                prev_frame = current_frame
+
+            dfs.append(seq_df)
+        self.imgs_metadata = pd.concat(dfs, ignore_index=True)
+
+
 
 
     def get_image_metadata(self, img_path):
