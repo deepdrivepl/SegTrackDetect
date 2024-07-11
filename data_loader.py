@@ -12,8 +12,6 @@ class SingleDetectionDataset(torch.utils.data.Dataset):
     
     def __init__(self, paths, dataset, det_inf_size, det_transform):
         self.paths = [x for x in paths if os.path.isfile(x)]
-        print(f'len(dataset) before: {len(paths)}')
-        print(f'len(dataset) after: {len(self.paths)}')
         self.dataset = dataset
         self.size = det_inf_size
         self.det_transform = det_transform(self.size[0], self.size[1])
@@ -42,8 +40,6 @@ class SingleDetectionDataset(torch.utils.data.Dataset):
 class ROIDataset(torch.utils.data.Dataset):
     def __init__(self, paths, dataset, roi_inf_size, roi_transform):
         self.paths = [x for x in paths if os.path.isfile(x)]
-        print(f'len(dataset) before: {len(paths)}')
-        print(f'len(dataset) after: {len(self.paths)}')
         self.roi_transform = roi_transform(roi_inf_size[0], roi_inf_size[1])
         self.dataset = dataset
 
