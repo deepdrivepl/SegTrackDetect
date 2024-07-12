@@ -22,7 +22,7 @@ from statistics import mean
 
 from utils.bboxes import getDetectionBboxes, NMS, non_max_suppression,scale_coords, xyxy2xywh, findBboxes, rot90points, getSlidingWindowBBoxes
 from utils.general import save_args, load_model
-from utils.drawing_vis import make_vis, plot_one_box
+from utils.drawing import make_vis
 from utils.obs import OBS_SORT_TYPES
     
         
