@@ -7,8 +7,42 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader
 from torchvision import transforms as T
+from collections import OrderedDict
+
 import torchvision.ops as ops
 
+
+def getSlidingWindowBBoxes(win_bbox, det_size, max_H, max_W, overlap_px = 20):
+    h,w = det_size
+
+    xmin, ymin, xmax, ymax = win_bbox
+    win_h, win_w = ymax-ymin, xmax-xmin
+
+    n_x = math.ceil(win_w / (w-overlap_px))
+    n_y = math.ceil(win_h / (h-overlap_px))
+
+    XS = np.array([xmin+(w-overlap_px)*n for n in range(n_x)])
+    YS = np.array([ymin+(h-overlap_px)*n for n in range(n_y)])
+
+    max_xmax = XS[-1]+w
+    max_ymax = YS[-1]+h
+
+    # if max_xmax > max_W:
+    #     dx = (max_W-max_xmax)
+    #     XS += dx
+    # if max_ymax > max_H:
+    #     dy = (max_H-max_ymax)
+    #     YS += dy
+
+    bboxes = []
+    for _xmin in XS:
+        for _ymin in YS:
+            _xmin,_ymin = [int(_) for _ in [_xmin,_ymin]]
+            # _xmax,_ymax = min(_xmin+w, max_W), min(_ymin+h, max_H)
+            _xmax,_ymax = min(_xmin+w, xmax), min(_ymin+h, ymax)
+            bboxes.append([_xmin, _ymin, _xmax, _ymax])
+    full_bbox = [min([x[0] for x in bboxes]), min([x[1] for x in bboxes]), max([x[2] for x in bboxes]),  max([x[3] for x in bboxes])]
+    return bboxes, full_bbox
 
 
 def findBboxes(label, original_shape, current_shape):
@@ -34,13 +68,13 @@ def findBboxes(label, original_shape, current_shape):
     return np.array(bboxes)
 
 
-def getDetectionBboxes(bboxes, max_H, max_W, det_size=(960, 960), bbox_type='naive'):
+def getDetectionBboxes(bboxes, max_H, max_W, det_size=(960, 960), bbox_type='naive', allow_resize=True):
     if bbox_type == 'naive':
-        bboxes = getDetectionBboxesNaive(bboxes, max_H, max_W, det_size=det_size)
+        bboxes = getDetectionBboxesNaive(bboxes, max_H, max_W, det_size=det_size, allow_resize=allow_resize)
     elif bbox_type == 'all':
-        bboxes =  getDetectionBboxesAll(bboxes, max_H, max_W, det_size=det_size)
+        bboxes =  getDetectionBboxesAll(bboxes, max_H, max_W, det_size=det_size, allow_resize=allow_resize)
     elif bbox_type == 'sorted':
-        bboxes =  getDetectionBboxesSorted(bboxes, max_H, max_W, det_size=det_size)
+        bboxes =  getDetectionBboxesSorted(bboxes, max_H, max_W, det_size=det_size, allow_resize=allow_resize)
     else:
         raise NotImplementedError
     return bboxes
@@ -101,7 +135,8 @@ def rot90points(x, y, hw):
     
     
 # should return crop coordinates - resizing handled in a datataloader
-def getDetectionBbox(bbox, max_H, max_W, det_size, padding=10):
+def getDetectionBbox(bbox, max_H, max_W, det_size, padding=20, allow_resize=False):
+
     if rotate(bbox, det_size):
         w,h = det_size
     else:
@@ -110,11 +145,18 @@ def getDetectionBbox(bbox, max_H, max_W, det_size, padding=10):
     xmin, ymin, xmax, ymax = bbox
     h_roi, w_roi = ymax-ymin, xmax-xmin
 
+    if (h_roi > h or w_roi > w) and not allow_resize:
+        crop_bboxes, full_bbox = getSlidingWindowBBoxes(bbox, det_size, max_H, max_W)
+        return crop_bboxes, [full_bbox]
+
     if h_roi > h: # padding - keep some space between returned roi and the detection window 
         h = h_roi + padding 
     if w_roi > w:
         w = w_roi + padding
 
+    # change - no "empty" space
+    # move the det_window to include more image area
+    # before :
     xc = (xmax+xmin)//2
     yc = (ymin+ymax)//2
 
@@ -124,49 +166,71 @@ def getDetectionBbox(bbox, max_H, max_W, det_size, padding=10):
     xmax = min(xmin+w, max_W)
     ymax = min(ymin+h, max_H)
 
+    # # after 
+    # xc = (xmax+xmin)//2
+    # yc = (ymin+ymax)//2
+
+    # xmin = xc - w//2
+    # ymin = yc - h//2
+    # if xmin < 0:
+    #     xmin = 0
+    # xmax = xmin + w
+
+    # if ymin < 0:
+    #     ymin = 0
+    # ymax = ymin + h
+
+    # if xmax > max_W:
+    #     dx = (max_W-xmax)
+    #     xmin+=dx
+    #     xmax+=dx
+    # if ymax > max_H:
+    #     dy = (max_H-ymax)
+    #     ymin+=dy
+    #     ymax+=dy
+
+
     crop_bbox = [xmin, ymin, xmax, ymax]
-    return crop_bbox
+    return [crop_bbox], [crop_bbox]
                 
         
-def getDetectionBboxesAll(bboxes, max_H, max_W, det_size):
+def getDetectionBboxesAll(bboxes, max_H, max_W, det_size, allow_resize):
     det_bboxes = []
     for bbox in bboxes:
-        det_bboxes.append(getDetectionBbox(bbox,  max_H, max_W, det_size=det_size))
+        det_bboxes += getDetectionBbox(bbox,  max_H, max_W, det_size=det_size, allow_resize=allow_resize)[0]
     return det_bboxes
+
+# fix filtering 
+def getDetectionBboxesNaive(rois, max_H, max_W, det_size, allow_resize):
+    det_windows = []
+    full_det_windows = []
     
-
-def getDetectionBboxesNaive(bboxes, max_H, max_W, det_size):
-    det_bboxes = []
-    for bbox in bboxes:
-        if any([isInsideBbox(bbox, det_bbox) for det_bbox in det_bboxes]):
+    for i, roi in enumerate(rois):
+        if any([isInsideBbox(roi, full_det_window) for full_det_window in full_det_windows]):
             continue
-        # for det_bbox in det_bboxes:
-        #     if WindowIoU(bbox, det_bbox,max_H, max_W) > 0.2:
-        #         print("> 0.2")
-        # if any([WindowIoU(bbox, det_bbox, max_H, max_W) > 0.7 for det_bbox in det_bboxes]):
-        #     continue
             
-        det_bboxes.append(getDetectionBbox(bbox,  max_H, max_W, det_size=det_size))
-    return det_bboxes
+        det_win, full_det_win = getDetectionBbox(roi,  max_H, max_W, det_size=det_size, allow_resize=allow_resize)
+        det_windows += det_win
+        full_det_windows += full_det_win
+    return det_windows
 
 
-def getDetectionBboxesSorted(bboxes, max_H, max_W, det_size):
-    _det_bboxes = [getDetectionBbox(bbox, max_H, max_W, det_size=det_size) for bbox in bboxes]
-    hits = {i: 0 for i in range(len(_det_bboxes))}
-    for i, det_bbox in enumerate(_det_bboxes):
-        hits[i]+=sum([isInsideBbox(bbox, det_bbox) for bbox in bboxes])
-    # print(hits)
-    if all([x==1 for x in hits.values()]):
-        return _det_bboxes
-    elif any([x==len(bboxes) for x in hits.values()]):
-        fnd = list(hits.keys())[list(hits.values()).index(len(bboxes))]
-        # print(fnd)
-        return [_det_bboxes[fnd]]
-    else:
-        hits = dict(sorted(hits.items(), key=lambda item: item[1], reverse=True))
-        bboxes = [bboxes[i] for i in hits.keys()]
-        return getDetectionBboxesNaive(bboxes, max_H, max_W, det_size=det_size)
+def getDetectionBboxesSorted(rois, max_H, max_W, det_size, allow_resize):
+    det_windows = []
+    for i, roi in enumerate(rois):
+        det_windows += getDetectionBbox(roi, max_H, max_W, det_size=det_size, allow_resize=allow_resize)[1]
 
+
+    hits = {i: 0 for i in range(len(det_windows))}
+    for i, det_window in enumerate(det_windows):
+        hits[i]+=sum([isInsideBbox(roi, det_window) for roi in rois])
+
+    # hits - how many rois inside each window, sort - det_windows with many rois first
+    hits = OrderedDict(sorted(hits.items(), key=lambda item: item[1], reverse=True))
+    rois = [rois[i] for i in hits.keys()] # rois with windows encapsulating many other rois first
+
+    final_det_windows = getDetectionBboxesNaive(rois, max_H, max_W, det_size=det_size, allow_resize=allow_resize)
+    return final_det_windows 
 
 
 # based on https://github.com/WongKinYiu/yolov7
