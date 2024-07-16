@@ -9,9 +9,9 @@ from PIL import Image, ImageFont, ImageDraw
 
 
 
-def plot_mask(mask, image, alpha=0.4):
+def plot_mask(mask, image, color = [255, 144, 30], alpha=0.4):
     mask = cv2.merge((mask, mask, mask))
-    color = np.full(mask.shape, np.array([255, 144, 30]))
+    color = np.full(mask.shape, np.array(color))
     
     mask = np.where(mask>0, color, image).astype(np.uint8)
     masked_image = cv2.addWeighted(image, alpha, mask, 1 - alpha, 0) 
