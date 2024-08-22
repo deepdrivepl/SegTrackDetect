@@ -211,6 +211,36 @@ unet_SDS1 = dict(
     postprocess = unet_postprocess,
 )
 
+unet_SDS1_trt = dict(
+    weights = "onnx-bs1/SDS-unetR18-001-fp32.engine",
+    in_size = (448,768),
+    thresh = 0.5,
+    args = None,
+    transform = roi_transform,
+    sigmoid_included = True,
+    postprocess = unet_postprocess,
+)
+
+unet_SDS1_trt_fp16 = dict(
+    weights = "onnx-bs1/SDS-unetR18-001-fp16.engine",
+    in_size = (448,768),
+    thresh = 0.5,
+    args = None,
+    transform = roi_transform,
+    sigmoid_included = True,
+    postprocess = unet_postprocess,
+)
+
+unet_SDS1_trt_int8 = dict(
+    weights = "onnx-bs1/SDS-unetR18-001-int8.engine",
+    in_size = (448,768),
+    thresh = 0.5,
+    args = None,
+    transform = roi_transform,
+    sigmoid_included = True,
+    postprocess = unet_postprocess,
+)
+
 unet_SDS2 = dict(
     weights = "weights/SeaDronesSee-002-R34-448x768-best-loss.pt",
     in_size = (448,768),
@@ -320,6 +350,33 @@ yolov7_tiny_SDS_crops_mul_scales_100_best = dict(
 
 yolov7_tiny_SDS_crops_mul_scales_300 = dict(
     weights = "weights/006-SeaDronesSee-yolov7-tiny-512x512-crops-only-multiple-scales-300ep-best.torchscript.pt",
+    in_size = (512,512),
+    conf_thresh = 0.01,
+    iou_thresh = 0.65,
+    transform = det_transform, # T.ToTensor(),
+    postprocess=yolov7_postprocess,
+)
+
+yolov7_tiny_SDS_crops_mul_scales_300_trt = dict(
+    weights = "onnx-bs1/SDS-v7t-006-fp32.engine",
+    in_size = (512,512),
+    conf_thresh = 0.01,
+    iou_thresh = 0.65,
+    transform = det_transform, # T.ToTensor(),
+    postprocess=yolov7_postprocess,
+)
+
+yolov7_tiny_SDS_crops_mul_scales_300_trt_fp16 = dict(
+    weights = "onnx-bs1/SDS-v7t-006-fp16.engine",
+    in_size = (512,512),
+    conf_thresh = 0.01,
+    iou_thresh = 0.65,
+    transform = det_transform, # T.ToTensor(),
+    postprocess=yolov7_postprocess,
+)
+
+yolov7_tiny_SDS_crops_mul_scales_300_trt_int8 = dict(
+    weights = "onnx-bs1/SDS-v7t-006-int8.engine",
     in_size = (512,512),
     conf_thresh = 0.01,
     iou_thresh = 0.65,
@@ -446,7 +503,10 @@ ROI_MODELS = {
     "unet_SDS_large": unet_SDS_large,
     "unet_DC1_tiny": unet_DC1_tiny,
     "unet_DC1_small": unet_DC1_small,
-    "unet_DC1_medium": unet_DC1_medium
+    "unet_DC1_medium": unet_DC1_medium,
+    "unet_SDS1_trt": unet_SDS1_trt,
+    "unet_SDS1_trt_fp16": unet_SDS1_trt_fp16,
+    "unet_SDS1_trt_int8": unet_SDS1_trt_int8 
 }
 
 
@@ -468,4 +528,7 @@ DET_MODELS = {
     "yolov7_tiny_SDS_crops_mul_scales_300": yolov7_tiny_SDS_crops_mul_scales_300,
     "yolov7_tiny_SDS_crops_mul_scales_100_bigger": yolov7_tiny_SDS_crops_mul_scales_100_bigger,
     "yolov7_SDS_crops_mul_scales": yolov7_SDS_crops_mul_scales,
+    "yolov7_tiny_SDS_crops_mul_scales_300_trt": yolov7_tiny_SDS_crops_mul_scales_300_trt,
+    "yolov7_tiny_SDS_crops_mul_scales_300_trt_fp16": yolov7_tiny_SDS_crops_mul_scales_300_trt_fp16,
+    "yolov7_tiny_SDS_crops_mul_scales_300_trt_int8": yolov7_tiny_SDS_crops_mul_scales_300_trt_int8
 }
