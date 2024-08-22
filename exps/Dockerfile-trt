@@ -1,0 +1,11 @@
+#FROM pytorch/pytorch:2.3.0-cuda12.1-cudnn8-devel
+FROM pytorch/pytorch:2.3.1-cuda11.8-cudnn8-devel
+
+RUN apt update && apt install -y zip htop screen libgl1-mesa-glx wget libglib2.0-0 g++
+RUN pip install seaborn thop tensorboard opencv-python gdown Pillow scikit-image filterpy lap
+#RUN pip install tensorrt-cu12==10.1.0 cuda-python
+#pycuda
+RUN pip install tensorrt==8.5.1.7 cuda-python
+
+
+WORKDIR /tinyROI
