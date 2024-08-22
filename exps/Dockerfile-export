@@ -1,0 +1,10 @@
+FROM nvcr.io/nvidia/tensorrt:23.05-py3
+
+RUN apt-get update && apt-get install ffmpeg libsm6 libxext6 -y 
+RUN pip install --upgrade pip
+RUN pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
+RUN pip install onnx==1.16.0 onnx-simplifier==0.4.35 onnxruntime-gpu==1.18.0 pandas==2.0.1 opencv-python-headless==4.8.0.74 norfair==2.2.0 gdown==4.7.1 
+RUN pip install seaborn thop tensorboard opencv-python gdown Pillow scikit-image filterpy lap cuda-python
+RUN pip install PyYAML==5.3.1 seaborn==0.13.0 watchdog==3.0.0
+RUN pip install nvidia-pyindex 
+RUN pip install onnx-graphsurgeon
