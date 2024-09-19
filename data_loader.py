@@ -8,34 +8,6 @@ from torchvision import transforms as T
 from utils.bboxes import letterbox
 
 
-class SingleDetectionDataset(torch.utils.data.Dataset):
-    
-    def __init__(self, paths, dataset, det_inf_size, det_transform):
-        self.paths = [x for x in paths if os.path.isfile(x)]
-        self.dataset = dataset
-        self.size = det_inf_size
-        self.det_transform = det_transform(self.size[0], self.size[1])
-        
-        
-    def __len__(self):
-        return len(self.paths)
-    
-
-    def __getitem__(self, idx):
-        img = cv2.imread(self.paths[idx])
-        img = np.ascontiguousarray(img[:, :, ::-1])
-        h,w = img.shape[:2]
-        
-        img = self.det_transform(img)
-        metadata = {
-            "image_path": os.path.abspath(self.paths[idx]), 
-            "image_idx": idx,
-            "coco": self.dataset.get_image_metadata(self.paths[idx])
-        }
-        return img, metadata
-
-        
-        
 
 class ROIDataset(torch.utils.data.Dataset):
     def __init__(self, paths, dataset, roi_inf_size, roi_transform):

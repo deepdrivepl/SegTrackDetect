@@ -14,24 +14,23 @@ from torch.utils.data import DataLoader
 
 from data_loader import SingleDetectionDataset, ROIDataset, WindowDetectionDataset
 
-from configs import DET_MODELS, ROI_MODELS, TRACKERS
+from configs import DET_MODELS
 from datasets import DATASETS
 
-from utils.bboxes import getDetectionBboxes, non_max_suppression,scale_coords, xyxy2xywh, findBboxes, rot90points, getSlidingWindowBBoxes
+from utils.bboxes import non_max_suppression,scale_coords, xyxy2xywh, rot90points
 from utils.general import save_args, load_model
 from utils.drawing import make_vis
 from utils.obs import OBS_SORT_TYPES
+from rois import ROIModule
     
         
         
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     # configs
-    parser.add_argument('--roi_model', type=str, default="unet", choices=ROI_MODELS.keys())
-    parser.add_argument('--det_model', type=str, default="yolov7_tiny", choices=DET_MODELS.keys())
-    parser.add_argument('--tracker', type=str, default="sort", choices=TRACKERS.keys())
-    parser.add_argument('--roi_weights', type=str, help="overwrite ROI weights from config")
-    parser.add_argument('--det_weights', type=str, help="overwrite DT weights from config")
+    parser.add_argument('--roi_model', type=str, default="unet")
+    parser.add_argument('--det_model', type=str, default="yolov7_tiny")
+    parser.add_argument('--tracker', type=str, default="sort")
 
     # dataset
     parser.add_argument('--ds', type=str, default="ZebraFish", choices=DATASETS.keys())
@@ -40,10 +39,9 @@ if __name__ == '__main__':
     parser.add_argument('--name', type=str, help='Name for img list provided in flist.txt')
 
     # ROI
-    parser.add_argument('--dilate', default=False, action='store_true')
-    parser.add_argument('--k_size', type=int, default=3) # per ds in pre/post proc files
-    parser.add_argument('--iter', type=int, default=1)
     parser.add_argument('--bbox_type', type=str, default='sorted', choices=['all', 'naive', 'sorted']) # TODO one fixed method
+    parser.add_argument('--allow_resize', default=False, action='store_true')
+
     # NMS
     parser.add_argument('--second_nms', default=False, action='store_true') 
     parser.add_argument('--second_nms_iou_th', type=float)
@@ -51,16 +49,13 @@ if __name__ == '__main__':
     parser.add_argument('--redundant', default=False, action='store_true')
     parser.add_argument('--max_det', type=int, default=500)
     parser.add_argument('--agnostic', default=False, action='store_true')
+    
     # general
     parser.add_argument('--cpu', default=False, action='store_true')
     parser.add_argument('--out_dir', type=str, default='detections')
     parser.add_argument('--debug', default=False, action='store_true')
     parser.add_argument('--vis_conf_th', type=float, default=0.3)
-    parser.add_argument('--allow_resize', default=False, action='store_true')
-
-    # tracker
-    parser.add_argument('--frame_delay', type=int, default=3) # fixed ?, each N frames rerun sw
-    
+        
     parser.add_argument('--obs_type', type=str, choices=['iou', 'conf', 'area', 'all', 'none'], default='all') # one fixed method
     parser.add_argument('--obs_iou_th', type=float, default=0.7)
 
@@ -78,19 +73,6 @@ if __name__ == '__main__':
         detections_dir = f'{args.out_dir}/vis-detections'
         os.makedirs(windows_dir, exist_ok=True); os.makedirs(detections_dir, exist_ok=True)
     
-    
-    # get models
-    device = torch.device('cuda:0') if torch.cuda.device_count() > 0 and not args.cpu else 'cpu'
-    
-    cfg_det = DET_MODELS[args.det_model]
-    net_det = load_model(cfg_det, device, weights=args.det_weights if args.det_weights is not None else None)
-
-    cfg_roi = ROI_MODELS[args.roi_model]
-    net_roi = load_model(cfg_roi, device, weights=args.roi_weights if args.roi_weights is not None else None)
-    
-    cfg_trk = TRACKERS[args.tracker]
-    trk_class = getattr(importlib.import_module(cfg_trk['module_name']), cfg_trk['class_name'])
-    
     # get dataset
     flist = args.flist if args.flist is None else [x.rstrip() for x in open(args.flist)]
     ds = (DATASETS[args.ds])(split=args.split, flist=flist, name=args.name)
@@ -99,73 +81,45 @@ if __name__ == '__main__':
     if ds.get_sequences() is None:
         print("Non-sequential data found; falling back to ROI mode.")
         exit(1) # TODO run second script (img only)
+
+
+    # get models
+    device = torch.device('cuda:0') if torch.cuda.device_count() > 0 and not args.cpu else 'cpu'
+    
+    cfg_det = DET_MODELS[args.det_model]
+    net_det = load_model(cfg_det, device, weights=None)
+
+    roi_extractor = ROIModule(
+        tracker_name = args.tracker,
+        estimator_name = args.roi_model,
+        is_sequence = True if ds.get_sequences() is not None else False,
+        device = device,
+        bbox_type = args.bbox_type,
+        allow_resize = args.allow_resize
+    )
     
     # inference
     annotations = []
     for seq_name, seq_flist in tqdm(seq2images.items()):
         seq_flist = sorted(seq_flist)
         
-        dataset = ROIDataset(seq_flist, ds, cfg_roi["in_size"], cfg_roi["transform"])
+        dataset = ROIDataset(seq_flist, ds, roi_extractor.estimator.input_size, roi_extractor.estimator.preprocess)
         dataloader = DataLoader(dataset, batch_size=1, shuffle=False, num_workers=4)
-        tracker = (trk_class)(**cfg_trk['args'])
 
-        seg_mask, mot_mask = None, None
         with torch.no_grad():
             for i, (img, metadata) in tqdm(enumerate(dataloader)):
 
                 H_orig, W_orig = metadata['coco']['height'].item(), metadata['coco']['width'].item()
                 original_shape = (H_orig, W_orig)
 
-
-                seg_bboxes, mot_bboxes, det_bboxes = np.empty((0,4)), np.empty((0,4)), np.empty((0,4))
-
-                # get ROI_SEG
-                seg_mask = net_roi(img.to(device))
-                seg_mask_fullres, seg_mask = cfg_roi["postprocess"](seg_mask, original_shape, cfg_roi["sigmoid_included"], cfg_roi["thresh"], args.dilate, args.k_size, args.iter)
-
-                # get ROI_MOT
-                trks = tracker.get_pred_locations()
-                
-                if i >= args.frame_delay:
-
-                    mot_bboxes = trks[:,:-1]
-
-                    mot_bboxes[:,0] = np.where(mot_bboxes[:,0] < 0, 0, mot_bboxes[:,0])
-                    mot_bboxes[:,1] = np.where(mot_bboxes[:,1] < 0, 0, mot_bboxes[:,1])
-                    mot_bboxes[:,2] = np.where(mot_bboxes[:,2] >= W_orig, W_orig-1, mot_bboxes[:,2])
-                    mot_bboxes[:,3] = np.where(mot_bboxes[:,3] >= H_orig, H_orig-1, mot_bboxes[:,3])
-
-                    indices = np.nonzero(((mot_bboxes[:,2]-mot_bboxes[:,0]) > 0) & ((mot_bboxes[:,3]-mot_bboxes[:,1]) > 0))
-                    mot_bboxes = mot_bboxes[indices[0], :]
-
-                    mot_mask = np.zeros((H_orig, W_orig), dtype=np.uint8)
-                    for mot_bbox in mot_bboxes:
-                        xmin,ymin,xmax,ymax = map(int, mot_bbox[:4])
-                        mot_mask[ymin:ymax+1, xmin:xmax+1] = 255
-
-                    mask_h,mask_w = seg_mask.shape[:2]
-                    mot_mask_low = cv2.resize(mot_mask, (mask_w, mask_h))
-                    seg_mask = np.logical_or(seg_mask, mot_mask_low).astype(np.uint8)*255 
-                    merged_bboxes = findBboxes(seg_mask, original_shape, seg_mask.shape)
-                else:
-                    seg_bboxes = findBboxes(seg_mask, original_shape, seg_mask.shape)
-                    merged_bboxes = seg_bboxes
-
-
-                det_bboxes = getDetectionBboxes(
-                    merged_bboxes, 
-                    H_orig, W_orig, 
-                    det_size=cfg_det['in_size'], 
-                    bbox_type=args.bbox_type,
-                    allow_resize=args.allow_resize,
+                # get detection windows from ROI
+                det_bboxes = roi_extractor.get_fused_roi(
+                    frame_id = i,
+                    img_tensor = img,
+                    orig_shape = original_shape,
+                    det_shape = cfg_det['in_size'],  
                 )
-
-                det_bboxes = np.array(det_bboxes).astype(np.int32)
                 
-                if len(det_bboxes) > 0:
-                    indices = np.nonzero(((det_bboxes[:,2]-det_bboxes[:,0]) > 0) & ((det_bboxes[:,3]-det_bboxes[:,1]) > 0))
-                    indices = indices[0]
-                    det_bboxes = det_bboxes[indices, :]
 
                 det_dataset =  WindowDetectionDataset(metadata['image_path'][0], ds, det_bboxes, cfg_det['in_size'])
                 det_dataloader = DataLoader(det_dataset, batch_size=len(det_dataset) if len(det_dataset)>0 else 1, shuffle=False, num_workers=4) # all windows in a single batch
@@ -225,9 +179,9 @@ if __name__ == '__main__':
 
                 # OBS
                 win_out, img_out = filter_fn(win_out, img_out, th=args.obs_iou_th)
-                    
-                tracker.update(img_out.detach().cpu().numpy()[:, :-1], trks)
-                                
+
+                roi_extractor.predictor.update_tracker_state(img_out.detach().cpu().numpy()[:, :-1])
+                                                    
                 if args.debug:
                     frame = cv2.imread(metadata['image_path'][0])
                     frame, frame_dets = make_vis(frame, seg_mask_fullres, mot_mask, seg_bboxes, mot_bboxes, det_bboxes, img_out, ds.classes, ds.colors, args.vis_conf_th)
