@@ -12,7 +12,7 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader
 
-from data_loader import SingleDetectionDataset, ROIDataset, WindowDetectionDataset
+from datasets import ROIDataset, WindowDetectionDataset
 
 from configs import DET_MODELS
 from datasets import DATASETS
