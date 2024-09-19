@@ -14,7 +14,7 @@ from torch.utils.data import DataLoader
 
 from datasets import ROIDataset, WindowDetectionDataset
 
-from configs import DET_MODELS
+from detector.configs import DETECTION_MODELS
 from datasets import DATASETS
 
 from utils.bboxes import non_max_suppression,scale_coords, xyxy2xywh, rot90points
