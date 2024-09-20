@@ -1,6 +1,5 @@
 import argparse
 import os
-import importlib
 import json
 
 from glob import glob
@@ -51,7 +50,7 @@ if __name__ == '__main__':
     parser.add_argument('--obs_iou_th', type=float, default=0.7)
     args = parser.parse_args()
     
-    
+
     # create out_dir and save args to json
     os.makedirs(args.out_dir, exist_ok=False)
     with open(os.path.join(args.out_dir, "args.json"), 'w', encoding='utf-8') as f:
@@ -63,6 +62,7 @@ if __name__ == '__main__':
         detections_dir = f'{args.out_dir}/vis-detections'
         os.makedirs(windows_dir, exist_ok=True); os.makedirs(detections_dir, exist_ok=True)
     
+
     # get dataset
     flist = args.flist if args.flist is None else [x.rstrip() for x in open(args.flist)]
     ds = (DATASETS[args.ds])(split=args.split, flist=flist, name=args.name)
