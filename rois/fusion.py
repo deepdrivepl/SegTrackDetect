@@ -11,6 +11,7 @@ class ROIModule:
     def __init__(self, tracker_name, estimator_name, is_sequence=True, device='cuda',
         bbox_type='sorted', allow_resize=True):
 
+        self.tracker_name = tracker_name
         self.predictor = Predictor(tracker_name)
         self.estimator = Estimator(estimator_name, device=device)
         self.is_sequence = is_sequence
@@ -46,8 +47,18 @@ class ROIModule:
         return detection_windows
 
 
+    def reset_predictor(self):
+        self.predictor = Predictor(self.tracker_name)
+
+
     def get_masks(self, shape):
         estimated_mask = cv2.resize(self.estimated_mask, (shape[1], shape[0]))
         predicted_mask = cv2.resize(self.predicted_mask, (shape[1], shape[0]))
         return estimated_mask, predicted_mask
+
+
+    def get_config_dict(self):
+        estimator_config = {k:v for k,v in self.estimator.config.items() if k not in ['transform', 'postprocess']}
+        predictor_config = self.predictor.config
+        return {'ROI_estimator': estimator_config, 'ROI_predictor': predictor_config}
 

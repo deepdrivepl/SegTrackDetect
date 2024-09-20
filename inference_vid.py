@@ -76,6 +76,22 @@ if __name__ == '__main__':
     # get models
     device = torch.device('cuda:0') if torch.cuda.device_count() > 0 and not args.cpu else 'cpu'
     detector = Detector(args.det_model, device)
+    roi_extractor = ROIModule(
+        tracker_name = args.tracker,
+        estimator_name = args.roi_model,
+        is_sequence = True if ds.get_sequences() is not None else False,
+        device = device,
+        bbox_type = args.bbox_type,
+        allow_resize = args.allow_resize
+    )
+
+    # save configs
+    detector_config = detector.get_config_dict()
+    roi_extractor_config = roi_extractor.get_config_dict()
+    with open(os.path.join(args.out_dir, "configs.json"), 'w', encoding='utf-8') as f:
+        config = {**roi_extractor_config, **detector_config}
+        json.dump(config, f, ensure_ascii=False, indent=4)
+
     filter_fn = OBS_SORT_TYPES[args.obs_type]
     
     # inference
@@ -83,14 +99,7 @@ if __name__ == '__main__':
     for seq_name, seq_flist in tqdm(seq2images.items()):
         seq_flist = sorted(seq_flist)
 
-        roi_extractor = ROIModule(
-            tracker_name = args.tracker,
-            estimator_name = args.roi_model,
-            is_sequence = True if ds.get_sequences() is not None else False,
-            device = device,
-            bbox_type = args.bbox_type,
-            allow_resize = args.allow_resize
-        )
+        roi_extractor.reset_predictor() #new tracker for each sequence 
         
         dataset = ROIDataset(seq_flist, ds, roi_extractor.estimator.input_size, roi_extractor.estimator.preprocess)
         dataloader = DataLoader(dataset, batch_size=1, shuffle=False, num_workers=4)

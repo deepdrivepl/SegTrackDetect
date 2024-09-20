@@ -50,6 +50,9 @@ class Detector:
 
         return detections
 
+    def get_config_dict(self):
+        return {'detector': {k:v for k,v in self.config.items() if k not in ['transform', 'postprocess']}}
+
 
     def postprocess_detections(self, detections, det_metadata):
 
