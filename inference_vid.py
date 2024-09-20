@@ -46,6 +46,7 @@ if __name__ == '__main__':
     parser.add_argument('--debug', default=False, action='store_true')
     parser.add_argument('--vis_conf_th', type=float, default=0.3)
         
+    # OBS
     parser.add_argument('--obs_type', type=str, choices=['iou', 'conf', 'area', 'all', 'none'], default='all') # one fixed method
     parser.add_argument('--obs_iou_th', type=float, default=0.7)
     args = parser.parse_args()
@@ -58,9 +59,8 @@ if __name__ == '__main__':
         json.dump(info, f, ensure_ascii=False, indent=4)
 
     if args.debug:
-        windows_dir = f'{args.out_dir}/vis-windows'
-        detections_dir = f'{args.out_dir}/vis-detections'
-        os.makedirs(windows_dir, exist_ok=True); os.makedirs(detections_dir, exist_ok=True)
+        debug_dir = f'{args.out_dir}/vis'
+        os.makedirs(debug_dir, exist_ok=True)
     
 
     # get dataset
@@ -76,21 +76,21 @@ if __name__ == '__main__':
     # get models
     device = torch.device('cuda:0') if torch.cuda.device_count() > 0 and not args.cpu else 'cpu'
     detector = Detector(args.det_model, device)
-    roi_extractor = ROIModule(
-        tracker_name = args.tracker,
-        estimator_name = args.roi_model,
-        is_sequence = True if ds.get_sequences() is not None else False,
-        device = device,
-        bbox_type = args.bbox_type,
-        allow_resize = args.allow_resize
-    )
-
     filter_fn = OBS_SORT_TYPES[args.obs_type]
     
     # inference
     annotations = []
     for seq_name, seq_flist in tqdm(seq2images.items()):
         seq_flist = sorted(seq_flist)
+
+        roi_extractor = ROIModule(
+            tracker_name = args.tracker,
+            estimator_name = args.roi_model,
+            is_sequence = True if ds.get_sequences() is not None else False,
+            device = device,
+            bbox_type = args.bbox_type,
+            allow_resize = args.allow_resize
+        )
         
         dataset = ROIDataset(seq_flist, ds, roi_extractor.estimator.input_size, roi_extractor.estimator.preprocess)
         dataloader = DataLoader(dataset, batch_size=1, shuffle=False, num_workers=4)
@@ -98,8 +98,7 @@ if __name__ == '__main__':
         with torch.no_grad():
             for i, (img, metadata) in tqdm(enumerate(dataloader)):
 
-                H_orig, W_orig = metadata['coco']['height'].item(), metadata['coco']['width'].item()
-                original_shape = (H_orig, W_orig)
+                original_shape = metadata['coco']['height'].item(), metadata['coco']['width'].item()
 
                 # get detection windows from ROI
                 det_bboxes = roi_extractor.get_fused_roi(
@@ -121,29 +120,29 @@ if __name__ == '__main__':
                     img_win_list+=img_wins
 
                 # Concatenate lists once after loop
-                win_out = torch.cat(img_win_list).to(device)
-                img_out = torch.cat(img_det_list).to(device)
+                img_win = torch.cat(img_win_list).to(device)
+                img_det = torch.cat(img_det_list).to(device)
 
-                # Remove NaNs from both img_out and win_out
-                valid_mask = ~torch.any(img_out.isnan(), dim=1)
-                win_out = win_out[valid_mask]
-                img_out = img_out[valid_mask]
+                # Remove NaNs from both img_det and img_win
+                valid_mask = ~torch.any(img_det.isnan(), dim=1)
+                img_win = img_win[valid_mask]
+                img_det = img_det[valid_mask]
 
                 # Overlapping Box Suppression
-                win_out, img_out = filter_fn(win_out, img_out, th=args.obs_iou_th)
+                img_win, img_det = filter_fn(img_win, img_det, th=args.obs_iou_th)
 
-                roi_extractor.predictor.update_tracker_state(img_out.detach().cpu().numpy()[:, :-1])
+                roi_extractor.predictor.update_tracker_state(img_det.detach().cpu().numpy()[:, :-1])
                                                     
                 if args.debug:
                     frame = cv2.imread(metadata['image_path'][0])
-                    frame, frame_dets = make_vis(frame, seg_mask_fullres, mot_mask, seg_bboxes, mot_bboxes, det_bboxes, img_out, ds.classes, ds.colors, args.vis_conf_th)
-                    out_fname_wins = f"{windows_dir}/{seq_name}/{os.path.basename(metadata['image_path'][0])}"
-                    out_fname_dets = f"{detections_dir}/{seq_name}/{os.path.basename(metadata['image_path'][0])}"
-                    os.makedirs(os.path.dirname(out_fname_wins), exist_ok=True); os.makedirs(os.path.dirname(out_fname_dets), exist_ok=True)
-                    cv2.imwrite(out_fname_wins, frame); cv2.imwrite(out_fname_dets, frame_dets)
+                    estim_mask, pred_mask = roi_extractor.get_masks(frame.shape[:2])
+                    frame = make_vis(frame, estim_mask, pred_mask, img_win, img_det, ds.classes, ds.colors, args.vis_conf_th)
+                    out_fname = f"{debug_dir}/{seq_name}/{os.path.basename(metadata['image_path'][0])}"
+                    os.makedirs(os.path.dirname(out_fname), exist_ok=True)
+                    cv2.imwrite(out_fname, frame)
                 
-                img_out[:,:4] = xyxy2xywh(img_out[:,:4])
-                for p in img_out.tolist():
+                img_det[:,:4] = xyxy2xywh(img_det[:,:4])
+                for p in img_det.tolist():
                     annotations.append(
                         {
                             "id": len(annotations), 

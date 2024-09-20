@@ -50,60 +50,19 @@ def draw_text(frame_numpy, text, x, y, color=(250,0,0), font='JetBrainsMono-Extr
 
     return np.array(frame_PIL)
 
-def make_vis(frame, seg_mask, mot_mask, seg_bboxes, mot_bboxes, det_bboxes, detections, classes, colors, vis_conf_th=0.1, show_label=True):
-    
-    # print(frame.shape, mot_mask.shape, seg_mask.shape)
-    # exit()
-    frame_wins = frame.copy()  
-    if seg_mask is not None:
-        frame_wins = plot_mask(seg_mask, frame_wins, alpha=0.6)
 
-    if mot_mask is not None:
-        frame_wins = plot_mask(mot_mask, frame_wins, color=[0, 128, 255], alpha=0.6)
+def make_vis(frame, estim_mask, pred_mask, detection_windows, detections, classes, colors, vis_conf_th=0.1, show_label=True):
 
+    if estim_mask is not None:
+        frame = plot_mask(estim_mask, frame, alpha=0.6)
 
-    for i,det_bbox in enumerate(det_bboxes.tolist()):
-        # color = tuple(map(int, list(np.random.choice(range(256), size=3))))
-        bbox = list(map(int, det_bbox))
-        color = (0,0,0)
-        # frame_wins = plot_one_box(bbox, frame_wins, color=color, draw_label=True, label=f'W{i:02d}', lw=2)
-        frame_wins = plot_one_box(bbox, frame_wins, color=color, draw_label=False, label=f'W{i:02d}', lw=2)
+    if pred_mask is not None:
+        frame = plot_mask(pred_mask, frame, color=[0, 128, 255], alpha=0.6)
 
+    for detection_window in detection_windows:
+        frame = plot_one_box(list(map(int, detection_window)), frame, color=(0,0,0), label='WINDOW', draw_label=show_label) 
 
     
-    detections = detections[detections[:, -2] >= vis_conf_th]
-    for det in detections.tolist():
-        xmin,ymin,xmax,ymax,conf,cls = det
-        frame = plot_one_box(
-            list(map(int, [xmin,ymin,xmax,ymax])), 
-            frame, 
-            color=colors[int(cls)],  #(0,0,190)
-            label=f'{classes[int(cls)]} {int(conf*100)}%' if show_label else '',
-            draw_label=show_label,
-            lw=2,
-        )
-
-    _xmin = min([max(int(x[0]-20),0) for x in det_bboxes])
-    _ymin = min([max(int(x[1]-20),0) for x in det_bboxes])
-    _xmax = max([min(int(x[2]+20), frame.shape[1]) for x in det_bboxes])
-    _ymax = max([min(int(x[3]+20), frame.shape[0]) for x in det_bboxes])
-    # print(_xmin, _ymin, _xmax, _ymax)
-    # exit()
-    frame = frame[_ymin:_ymax, _xmin:_xmax,:]
-
-def make_vis(frame, seg_mask, mot_mask, seg_bboxes, mot_bboxes, det_bboxes, detections, classes, colors, vis_conf_th=0.1, show_label=True):
-
-    for det_bbox in det_bboxes:
-        frame = plot_one_box(list(map(int, det_bbox)), frame, color=(0,0,0), label='WIN', draw_label=show_label) 
-
-    frame_wins = frame.copy()  
-    if seg_mask is not None:
-        frame_wins = plot_mask(seg_mask, frame_wins, alpha=0.6)
-
-    if mot_mask is not None:
-        frame_wins = plot_mask(mot_mask, frame_wins, color=[0, 128, 255], alpha=0.6)
-    
-
     detections = detections[detections[:, -2] >= vis_conf_th]
     for det in detections.tolist():
         xmin,ymin,xmax,ymax,conf,cls = det
@@ -113,21 +72,5 @@ def make_vis(frame, seg_mask, mot_mask, seg_bboxes, mot_bboxes, det_bboxes, dete
             color=colors[int(cls)], 
             label=f'{classes[int(cls)]} {int(conf*100)}%' if show_label else ''
         )
-      
-    # for seg_bbox in seg_bboxes:
-    #     frame_wins = plot_one_box(list(map(int, seg_bbox)), frame_wins, color=(200,0,0), label='SEG')       
-    # for mot_bbox in mot_bboxes:
-    #     frame_wins = plot_one_box(list(map(int, mot_bbox)), frame_wins, color=(0,200,0), label='MOT') 
-    
-        
-    stats = [
-             "SEG  %02d" % (len(seg_bboxes)), 
-             "MOT  %02d" % (len(mot_bboxes)), 
-             "WIN  %02d" % (len(det_bboxes))
-            ]
-    frame_wins = draw_text(frame_wins, "\n".join(stats), 20, 40, color=(255,255,255))
 
-    
-    
-    
-    return frame_wins, frame
+    return frame
