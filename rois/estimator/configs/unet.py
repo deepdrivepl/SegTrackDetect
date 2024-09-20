@@ -77,7 +77,7 @@ DroneCrowd_medium = dict(
 
 
 SeaDronesSee_tiny = dict(
-    weights = "ablation/SEG-RES/SEG_RES/SeaDronesSee-000-R18-64x96-best-loss.pt",
+    weights = "weights/SeaDronesSee-000-R18-64x96-best-loss.pt",
     in_size = (64,96),
     thresh = 0.5,
     args = None,
@@ -90,7 +90,7 @@ SeaDronesSee_tiny = dict(
 )
 
 SeaDronesSee_small = dict(
-    weights = "ablation/SEG-RES/SEG_RES/SeaDronesSee-000-R18-128x192-best-loss.pt",
+    weights = "weights/SeaDronesSee-000-R18-128x192-best-loss.pt",
     in_size = (128,192),
     thresh = 0.5,
     args = None,
@@ -103,7 +103,7 @@ SeaDronesSee_small = dict(
 )
 
 SeaDronesSee_medium = dict(
-    weights = "ablation/SEG-RES/SEG_RES/SeaDronesSee-000-R18-224x384-best-loss.pt",
+    weights = "weights/SeaDronesSee-000-R18-224x384-best-loss.pt",
     in_size = (224,384),
     thresh = 0.5,
     args = None,
@@ -116,7 +116,7 @@ SeaDronesSee_medium = dict(
 )
 
 SeaDronesSee_large = dict(
-    weights = "weights/SeaDronesSee-001-R18-448x768-best-loss.pt", #"ablation/SEG-RES/SEG_RES/SeaDronesSee-000-R18-448x768-best-loss.pt",
+    weights = "weights/SeaDronesSee-001-R18-448x768-best-loss.pt", #"weights/SeaDronesSee-000-R18-448x768-best-loss.pt",
     in_size = (448,768),
     thresh = 0.5,
     args = None,

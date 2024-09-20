@@ -48,7 +48,7 @@ SeaDronesSee = dict(
 
 
 DroneCrowd = dict(
-    weights = "weights/DC/004-DroneCrowd-yolov7-tiny-512x512-crops-only-multiple-scales-50ep-best.torchscript.pt",
+    weights = "weights/004-DroneCrowd-yolov7-tiny-512x512-crops-only-multiple-scales-50ep-best.torchscript.pt",
     in_size = (512,512),
     conf_thresh = 0.01,
     iou_thresh = 0.65,
