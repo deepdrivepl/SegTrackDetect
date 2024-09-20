@@ -13,27 +13,26 @@ import torch
 from torch.utils.data import DataLoader
 
 from datasets import ROIDataset, WindowDetectionDataset
-
-from detector.configs import DETECTION_MODELS
 from datasets import DATASETS
+from drawing import make_vis
 
-from utils.bboxes import non_max_suppression,scale_coords, xyxy2xywh, rot90points
-from utils.general import save_args, load_model
-from utils.drawing import make_vis
-from utils.obs import OBS_SORT_TYPES
+from detector.aggregation import xyxy2xywh
+from detector.obs import OBS_SORT_TYPES
+
 from rois import ROIModule
+from detector import Detector
     
         
         
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    # configs
-    parser.add_argument('--roi_model', type=str, default="unet")
-    parser.add_argument('--det_model', type=str, default="yolov7_tiny")
+    # models
+    parser.add_argument('--roi_model', type=str, default="SDS_large")
+    parser.add_argument('--det_model', type=str, default="SDS")
     parser.add_argument('--tracker', type=str, default="sort")
 
     # dataset
-    parser.add_argument('--ds', type=str, default="ZebraFish", choices=DATASETS.keys())
+    parser.add_argument('--ds', type=str, default="SeaDronesSee", choices=DATASETS.keys())
     parser.add_argument('--split', type=str, default='test')
     parser.add_argument('--flist', type=str, help='If provided, infer images listed in flist.txt; if not, infer split images.')
     parser.add_argument('--name', type=str, help='Name for img list provided in flist.txt')
@@ -41,14 +40,6 @@ if __name__ == '__main__':
     # ROI
     parser.add_argument('--bbox_type', type=str, default='sorted', choices=['all', 'naive', 'sorted']) # TODO one fixed method
     parser.add_argument('--allow_resize', default=False, action='store_true')
-
-    # NMS
-    parser.add_argument('--second_nms', default=False, action='store_true') 
-    parser.add_argument('--second_nms_iou_th', type=float)
-    parser.add_argument('--merge', default=False, action='store_true')
-    parser.add_argument('--redundant', default=False, action='store_true')
-    parser.add_argument('--max_det', type=int, default=500)
-    parser.add_argument('--agnostic', default=False, action='store_true')
     
     # general
     parser.add_argument('--cpu', default=False, action='store_true')
@@ -58,15 +49,14 @@ if __name__ == '__main__':
         
     parser.add_argument('--obs_type', type=str, choices=['iou', 'conf', 'area', 'all', 'none'], default='all') # one fixed method
     parser.add_argument('--obs_iou_th', type=float, default=0.7)
-
     args = parser.parse_args()
     
-    filter_fn = OBS_SORT_TYPES[args.obs_type]
     
-    # save args
+    # create out_dir and save args to json
     os.makedirs(args.out_dir, exist_ok=False)
-    out_dir = args.out_dir
-    save_args(out_dir, args)
+    with open(os.path.join(args.out_dir, "args.json"), 'w', encoding='utf-8') as f:
+        info = {**vars(args)}
+        json.dump(info, f, ensure_ascii=False, indent=4)
 
     if args.debug:
         windows_dir = f'{args.out_dir}/vis-windows'
@@ -85,10 +75,7 @@ if __name__ == '__main__':
 
     # get models
     device = torch.device('cuda:0') if torch.cuda.device_count() > 0 and not args.cpu else 'cpu'
-    
-    cfg_det = DET_MODELS[args.det_model]
-    net_det = load_model(cfg_det, device, weights=None)
-
+    detector = Detector(args.det_model, device)
     roi_extractor = ROIModule(
         tracker_name = args.tracker,
         estimator_name = args.roi_model,
@@ -97,6 +84,8 @@ if __name__ == '__main__':
         bbox_type = args.bbox_type,
         allow_resize = args.allow_resize
     )
+
+    filter_fn = OBS_SORT_TYPES[args.obs_type]
     
     # inference
     annotations = []
@@ -117,67 +106,30 @@ if __name__ == '__main__':
                     frame_id = i,
                     img_tensor = img,
                     orig_shape = original_shape,
-                    det_shape = cfg_det['in_size'],  
+                    det_shape = detector.input_size,  
                 )
                 
 
-                det_dataset =  WindowDetectionDataset(metadata['image_path'][0], ds, det_bboxes, cfg_det['in_size'])
+                det_dataset =  WindowDetectionDataset(metadata['image_path'][0], ds, det_bboxes, detector.input_size)
                 det_dataloader = DataLoader(det_dataset, batch_size=len(det_dataset) if len(det_dataset)>0 else 1, shuffle=False, num_workers=4) # all windows in a single batch
 
-                img_out = torch.empty((0, 6))
-                win_out = torch.empty((0, 4))
-
+                img_det_list, img_win_list = [], []
                 for j, (img_det, det_metadata) in enumerate(det_dataloader):
-                    out = net_det(img_det.to(device))
-                    out = cfg_det["postprocess"](out)
-                    out = non_max_suppression(
-                        out, 
-                        conf_thres = cfg_det['conf_thresh'], 
-                        iou_thres = cfg_det['iou_thresh'],
-                        multi_label = True,
-                        labels = [],
-                        merge = args.merge,
-                        agnostic = args.agnostic
-                    )
-                    
-                    for si, pred in enumerate(out):
-                        if len(pred) == 0:
-                            continue
-                            
-                        win_out = torch.cat((
-                            win_out,
-                            det_metadata['bbox'][si].repeat(len(pred),1)
-                        ))
+                    detections = detector.get_detections(img_det)
+                    img_dets, img_wins = detector.postprocess_detections(detections, det_metadata)
+                    img_det_list+=img_dets
+                    img_win_list+=img_wins
 
-                        if det_metadata['resize'][si].item():
+                # Concatenate lists once after loop
+                win_out = torch.cat(img_win_list).to(device)
+                img_out = torch.cat(img_det_list).to(device)
 
-                            pred[:,:4] = scale_coords(det_metadata['unpadded_shape'][si], pred[:, :4], det_metadata['crop_shape'][si])
-                            # pred[:,:4] = scale_coords(det_metadata['det_shape'][si], pred[:,:4], det_metadata['crop_shape'][si])
+                # Remove NaNs from both img_out and win_out
+                valid_mask = ~torch.any(img_out.isnan(), dim=1)
+                win_out = win_out[valid_mask]
+                img_out = img_out[valid_mask]
 
-                        if det_metadata['rotation'][si].item():
-                            h_window, w_window = det_metadata['roi_shape'][si]
-                            xmin_, ymax_ = rot90points(pred[:,0], pred[:,1], [w_window.item(),h_window.item()])
-                            xmax_, ymin_ = rot90points(pred[:,2], pred[:,3], [w_window.item(),h_window.item()])
-                            pred[:,0] = xmin_
-                            pred[:,1] = ymin_
-                            pred[:,2] = xmax_
-                            pred[:,3] = ymax_
-
-                        pred[:,:4] = pred[:,:4] + det_metadata['translate'][si].to(device) # to the coordinates of the original image
-          
-  
-                    if not img_out.numel():
-                        img_out = torch.cat(out)
-                    else:
-                        img_out = torch.cat((img_out, out), 0)
-
-                win_out = win_out.to(device)
-                img_out = img_out.to(device)
-                    
-                win_out = win_out[~torch.any(img_out.isnan(),dim=1)]
-                img_out = img_out[~torch.any(img_out.isnan(),dim=1)]
-
-                # OBS
+                # Overlapping Box Suppression
                 win_out, img_out = filter_fn(win_out, img_out, th=args.obs_iou_th)
 
                 roi_extractor.predictor.update_tracker_state(img_out.detach().cpu().numpy()[:, :-1])
@@ -205,5 +157,5 @@ if __name__ == '__main__':
                     )
 
         
-    with open(os.path.join(out_dir, f'results-{args.split if args.flist is None else args.name}.json'), 'w', encoding='utf-8') as f:
+    with open(os.path.join(args.out_dir, f'results-{args.split if args.flist is None else args.name}.json'), 'w', encoding='utf-8') as f:
         json.dump(annotations, f, ensure_ascii=False, indent=4)

@@ -23,6 +23,10 @@ ZeF20 = dict(
     in_size = (160,256),
     conf_thresh = 0.01,
     iou_thresh = 0.65,
+    multi_label = True,
+    labels = [],
+    merge = False,
+    agnostic = False,
     transform = yolo_transform,
     postprocess = yolo_postprocess,
 )
@@ -33,6 +37,10 @@ SeaDronesSee = dict(
     in_size = (512,512),
     conf_thresh = 0.01,
     iou_thresh = 0.65,
+    multi_label = True,
+    labels = [],
+    merge = True,
+    agnostic = False,
     transform = yolo_transform,
     postprocess = yolo_postprocess,
 )
@@ -44,6 +52,10 @@ DroneCrowd = dict(
     in_size = (512,512),
     conf_thresh = 0.01,
     iou_thresh = 0.65,
+    multi_label = True,
+    labels = [],
+    merge = False,
+    agnostic = False,
     transform = yolo_transform,
     postprocess = yolo_postprocess,
 )
@@ -53,6 +65,10 @@ MTSD = dict(
     in_size = (960,960),
     conf_thresh = 0.005,
     iou_thresh = 0.45,
+    multi_label = True,
+    labels = [],
+    merge = False,
+    agnostic = False,
     transform = T.ToTensor(),
     postprocess = yolo_postprocess,
 )

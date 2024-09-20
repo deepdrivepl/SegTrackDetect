@@ -5,7 +5,30 @@ import numpy as np
 
 import torch
 from torchvision import transforms as T
-from utils.bboxes import letterbox
+
+
+
+
+# based on https://github.com/WongKinYiu/yolov7
+def letterbox(img, new_shape=(640, 640), color=(114, 114, 114), auto=True, scaleFill=False, scaleup=True, stride=64):
+    
+    shape = img.shape[:2]  # orig hw
+    if isinstance(new_shape, int):
+        new_shape = (new_shape, new_shape)
+
+    # Scale ratio (new / old)
+    r = min(new_shape[0] / shape[0], new_shape[1] / shape[1])
+    # if not scaleup:  
+    r = min(r, 1.0) # only scale down, do not scale up (for better test mAP)
+
+    # Compute padding
+    ratio = r, r  # width, height ratios
+    new_unpad = int(round(shape[1] * r)), int(round(shape[0] * r))
+    
+    img_in = np.full((*new_shape, 3), color).astype(np.uint8)
+    img_in[:new_unpad[1],:new_unpad[0],...] = cv2.resize(img, new_unpad, interpolation=cv2.INTER_LINEAR)
+    # print(img_in.shape, new_unpad)
+    return img_in, new_unpad[::-1]
 
 
 

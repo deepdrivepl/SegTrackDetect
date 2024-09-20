@@ -1,6 +1,7 @@
 import torch
 
-from .bboxes import box_iou
+from .aggregation import box_iou
+
 
 
 def filter_dets(windows, detections, th=0.7):

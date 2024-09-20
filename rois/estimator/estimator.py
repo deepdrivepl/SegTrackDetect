@@ -29,7 +29,7 @@ class Estimator:
         self.k_size = self.config['k_size']
         self.iter = self.config['iter']
 
-        print(f'Postprocessing estimated mask with: threshold={self.thresh}, dilate={self.dilate}, k_size={self.k_size},iter={self.iter}\nEdit ESTIMATOR_MODELS to change these values')
+        print(f'Postprocessing estimated mask with: threshold={self.thresh}, dilate={self.dilate}, k_size={self.k_size}, iter={self.iter}\nEdit ESTIMATOR_MODELS to change these values')
 
     @torch.no_grad()
     def get_estimated_roi(self, img_tensor, orig_shape):
