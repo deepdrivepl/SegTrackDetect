@@ -116,7 +116,7 @@ SeaDronesSee_medium = dict(
 )
 
 SeaDronesSee_large = dict(
-    weights = "weights/SeaDronesSee-001-R18-448x768-best-loss.pt", #"weights/SeaDronesSee-000-R18-448x768-best-loss.pt",
+    weights = "weights/SeaDronesSee-000-R18-448x768-best-loss.pt",
     in_size = (448,768),
     thresh = 0.5,
     args = None,
