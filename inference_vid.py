@@ -11,17 +11,16 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader
 
-from datasets import ROIDataset, WindowDetectionDataset
-from datasets import DATASETS
+from datasets import ROIDataset, WindowDetectionDataset, DATASETS
 from drawing import make_vis
-
-from detector.aggregation import xyxy2xywh
-from detector.obs import OBS_SORT_TYPES
 
 from rois import ROIModule
 from detector import Detector
-    
-        
+from detector.aggregation import xyxy2xywh
+from detector.obs import OBS_SORT_TYPES
+
+
+
         
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -99,7 +98,7 @@ if __name__ == '__main__':
     for seq_name, seq_flist in tqdm(seq2images.items()):
         seq_flist = sorted(seq_flist)
 
-        roi_extractor.reset_predictor() #new tracker for each sequence 
+        roi_extractor.reset_predictor() # new tracker for each sequence 
         
         dataset = ROIDataset(seq_flist, ds, roi_extractor.estimator.input_size, roi_extractor.estimator.preprocess)
         dataloader = DataLoader(dataset, batch_size=1, shuffle=False, num_workers=4)
@@ -117,7 +116,6 @@ if __name__ == '__main__':
                     det_shape = detector.input_size,  
                 )
                 
-
                 det_dataset =  WindowDetectionDataset(metadata['image_path'][0], ds, det_bboxes, detector.input_size)
                 det_dataloader = DataLoader(det_dataset, batch_size=len(det_dataset) if len(det_dataset)>0 else 1, shuffle=False, num_workers=4) # all windows in a single batch
 
