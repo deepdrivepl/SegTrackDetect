@@ -1,5 +1,8 @@
 import os
 import torch
+import time
+
+from statistics import mean
 
 from .configs import DETECTION_MODELS
 from .aggregation import non_max_suppression, rot90points, scale_coords
@@ -33,11 +36,23 @@ class Detector:
         self.device = device
 
 
+        self.inference_times = []
+        self.postprocess_times = []
+        self.nms_times = []
+        self.postprocess_to_orig_times = []
+
+
     @torch.no_grad()
     def get_detections(self, img_tensor):
-
+        t1 = time.time()
         detections = self.net(img_tensor.to(self.device))
+        self.inference_times.append(time.time()-t1)
+
+        t2 = time.time()
         detections = self.postprocess(detections)
+        self.postprocess_times.append(time.time()-t2)
+
+        t3 = time.time()
         detections = non_max_suppression(
             detections, 
             conf_thres = self.conf_thresh, 
@@ -47,6 +62,7 @@ class Detector:
             merge = self.merge,
             agnostic = self.agnostic
         )
+        self.nms_times.append(time.time()-t3)
 
         return detections
 
@@ -55,6 +71,8 @@ class Detector:
 
 
     def postprocess_detections(self, detections, det_metadata):
+
+        t1 = time.time()
 
         img_det_list = []
         img_win_list = []
@@ -89,4 +107,10 @@ class Detector:
 
             img_det_list.append(detection)
 
+        self.postprocess_to_orig_times.append(time.time()-t1)
+
         return img_det_list, img_win_list
+
+
+    def get_execution_times(self, num_images):
+        return sum(self.inference_times)/num_images, sum(self.postprocess_times)/num_images, sum(self.nms_times)/num_images, sum(self.postprocess_to_orig_times)/num_images

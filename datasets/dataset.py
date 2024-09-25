@@ -1,4 +1,6 @@
 import os
+import time
+
 
 import cv2
 import numpy as np
@@ -77,6 +79,8 @@ class WindowDetectionDataset(torch.utils.data.Dataset):
 
     def __getitem__(self, idx):
 
+        t1 = time.time()
+
         # handle cropping
         xmin, ymin, xmax, ymax = map(int, self.bboxes[idx])
         roi_h, roi_w = ymax-ymin, xmax-xmin # vertical or horizontal
@@ -117,6 +121,7 @@ class WindowDetectionDataset(torch.utils.data.Dataset):
             'unpadded_shape': torch.tensor([unpadded[0], unpadded[1]]).long() ,
             'coco': self.dataset.get_image_metadata(self.path),
             'roi_shape': torch.tensor([roi_h, roi_w]),
+            'time': time.time()-t1
         }
 
         return self.transform(img_in), metadata

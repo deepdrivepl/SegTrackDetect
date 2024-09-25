@@ -1,5 +1,8 @@
 import cv2
 import numpy as np
+import time
+
+from statistics import mean
 
 from .estimator import Estimator
 from .predictor import Predictor
@@ -18,11 +21,15 @@ class ROIModule:
         self.bbox_type = bbox_type
         self.allow_resize = allow_resize
 
+        self.rois_coorinates_times = []
+        self.detection_windows_times = []
+
 
     def get_fused_roi(self, frame_id, img_tensor, orig_shape, det_shape):
 
-        self.estimated_mask = self.estimator.get_estimated_roi(img_tensor, orig_shape)
-        estimated_shape = self.estimated_mask.shape[:2]
+        self.estimated_mask = self.estimator.get_estimated_roi(img_tensor, orig_shape) #[0,0,...]
+        # self.estimated_mask = self.estimated_mask.cpu().numpy()
+        estimated_shape = self.estimated_mask.shape[-2:]
 
         if self.is_sequence:
             self.predicted_mask = self.predictor.get_predicted_roi(frame_id, orig_shape, estimated_shape)
@@ -30,7 +37,11 @@ class ROIModule:
         else:
             fused_mask = self.estimated_mask
 
+        t1 = time.time()
         fused_bboxes = findBboxes(fused_mask, orig_shape, estimated_shape)
+        self.rois_coorinates_times.append(time.time()-t1)
+
+        t2 = time.time()
         detection_windows = getDetectionWindows( # TODO split into detection windows coordinates & filtering
             fused_bboxes, 
             orig_shape, 
@@ -44,6 +55,7 @@ class ROIModule:
         if len(detection_windows) > 0:
             indices = np.nonzero(((detection_windows[:,2]-detection_windows[:,0]) > 0) & ((detection_windows[:,3]-detection_windows[:,1]) > 0))
             detection_windows = detection_windows[indices[0], :]
+        self.detection_windows_times.append(time.time()-t2)
         return detection_windows
 
 
@@ -61,4 +73,8 @@ class ROIModule:
         estimator_config = {k:v for k,v in self.estimator.config.items() if k not in ['transform', 'postprocess']}
         predictor_config = self.predictor.config
         return {'ROI_estimator': estimator_config, 'ROI_predictor': predictor_config}
+
+
+    def get_execution_times(self, num_images):
+        return sum(self.rois_coorinates_times)/num_images, sum(self.detection_windows_times)/num_images, self.predictor.get_execution_times(num_images), self.estimator.get_execution_times(num_images)
 
