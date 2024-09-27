@@ -58,69 +58,59 @@ class ROIDataset(torch.utils.data.Dataset):
         }            
     
         return image, metadata
-    
 
-    
+
 class WindowDetectionDataset(torch.utils.data.Dataset):
     def __init__(self, path, dataset, bboxes, size):
         self.path = os.path.abspath(path)
-        self.image = cv2.imread(path)[:,:,::-1]
+        self.image = cv2.imread(path)[:, :, ::-1]
         self.image = np.ascontiguousarray(self.image)
-        self.bboxes = torch.tensor(bboxes)
+        self.bboxes = torch.tensor(bboxes, dtype=torch.float32)
         self.size = size
         self.transform = T.ToTensor()
         self.h, self.w = self.image.shape[:2]
         self.dataset = dataset
 
-
     def __len__(self):
         return len(self.bboxes)
-
 
     def __getitem__(self, idx):
 
         t1 = time.time()
+        # Get the bounding box and crop the image
+        xmin, ymin, xmax, ymax = self.bboxes[idx].int().tolist()
+        crop_image = self.image[ymin:ymax, xmin:xmax]
 
-        # handle cropping
-        xmin, ymin, xmax, ymax = map(int, self.bboxes[idx])
-        roi_h, roi_w = ymax-ymin, xmax-xmin # vertical or horizontal
-        crop_image = self.image[ymin:ymax,xmin:xmax,:]
+        # Check if rotation is needed using a simpler conditional
+        rotate = (crop_image.shape[0] > crop_image.shape[1]) != (self.size[0] > self.size[1])
 
-        # rotate if needed
-        if (roi_h > roi_w and self.size[0] > self.size[1]) or (roi_h <= roi_w and self.size[0] <= self.size[1]):
-            rotate = False
-        else:
-            rotate = True
-
-        if rotate: # same orientation as the detection window
+        # Rotate the image if necessary
+        if rotate:
             crop_image = cv2.rotate(crop_image, cv2.ROTATE_90_CLOCKWISE)
 
-        # resize if needed
-        det_h, det_w = self.size
+        # Resize and handle padding
         crop_h, crop_w = crop_image.shape[:2]
-        resize = False
-        unpadded = [0.0,0.0]
-        if crop_h > det_h or crop_w > det_w:
-            resize = True
-            # crop_image = cv2.resize(crop_image, (det_w, det_h))
-            crop_image, (unpadded) = letterbox(crop_image, (det_h, det_w), auto=False)
-        paste_h, paste_w = crop_image.shape[:2]
+        if crop_h > self.size[0] or crop_w > self.size[1]:
+            crop_image, unpadded = letterbox(crop_image, self.size, auto=False)
+        else:
+            unpadded = (crop_h, crop_w)
 
-        img_in = np.full((*self.size, 3), (114, 114, 114)).astype(np.uint8)
-        img_in[:paste_h,:paste_w,...] = crop_image
+        # Pre-allocate output image with padding
+        img_in = np.full((*self.size, 3), 114, dtype=np.uint8)
+        img_in[:crop_image.shape[0], :crop_image.shape[1]] = crop_image
 
-        
+        # Pre-construct metadata tensor
         metadata = {
-            'bbox': self.bboxes[idx], 
-            'translate': torch.tensor([xmin, ymin, xmin, ymin]).float() ,
-            'image_path': self.path, 
-            'rotation': rotate, 
-            'resize': resize,
-            'det_shape': torch.tensor([det_h, det_w]), 
-            'crop_shape': torch.tensor([crop_h, crop_w]), 
-            'unpadded_shape': torch.tensor([unpadded[0], unpadded[1]]).long() ,
+            'bbox': self.bboxes[idx],
+            'translate': torch.tensor([xmin, ymin, xmin, ymin], dtype=torch.float32),
+            'image_path': self.path,
+            'rotation': rotate,
+            'resize': (crop_h > self.size[0] or crop_w > self.size[1]),
+            'det_shape': torch.tensor(self.size, dtype=torch.float32),
+            'crop_shape': torch.tensor([crop_h, crop_w], dtype=torch.float32),
+            'unpadded_shape': torch.tensor(unpadded, dtype=torch.int64),
             'coco': self.dataset.get_image_metadata(self.path),
-            'roi_shape': torch.tensor([roi_h, roi_w]),
+            'roi_shape': torch.tensor([ymax - ymin, xmax - xmin], dtype=torch.float32),
             'time': time.time()-t1
         }
 
