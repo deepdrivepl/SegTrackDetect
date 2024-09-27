@@ -2,23 +2,24 @@ import cv2
 import numpy as np
 
 import torch
+import kornia
 from .common import estimator_transform
 
 
 
-def unet_postprocess(output, ori_shape, sigmoid_included=False, thresh=None, dilate=False, k_size=3, iter=1):
-    output = torch.squeeze(output)
-    if not sigmoid_included:
-        output = output.sigmoid()
-    if thresh:
-        output = torch.where(output > thresh, 1.0, 0.0)
-    output = 255 * output.detach().cpu().numpy().astype(np.uint8) 
-    if dilate:
-        kernel = np.ones((k_size, k_size), np.uint8)
-        output = cv2.dilate(output, kernel, iterations = iter)
 
-    # output_fullres = cv2.resize(output, (ori_shape[1], ori_shape[0]))
+def unet_postprocess(output, ori_shape, sigmoid_included=False, thresh=None, dilate=False, k_size=3, iter=1):
+    # Apply sigmoid if not included in model
+    if not sigmoid_included:
+        output = torch.sigmoid(output)
     
+    # Apply threshold if provided
+    if thresh is not None:
+        output = (output > thresh).float()
+    if dilate:
+        kernel = torch.ones((k_size, k_size), device=output.device)
+        output = kornia.morphology.dilation(output, kernel)
+
     return output
 
 
