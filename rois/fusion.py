@@ -2,11 +2,13 @@ import cv2
 import numpy as np
 import time
 
+import torch
+
 from statistics import mean
 
 from .estimator import Estimator
 from .predictor import Predictor
-from .windows_proposals import findBboxes, getDetectionWindows
+from .windows_proposals import find_bounding_boxes, get_detection_windows
 
 
 class ROIModule:
@@ -27,22 +29,24 @@ class ROIModule:
 
     def get_fused_roi(self, frame_id, img_tensor, orig_shape, det_shape):
 
-        self.estimated_mask = self.estimator.get_estimated_roi(img_tensor, orig_shape) #[0,0,...]
+        self.estimated_mask = self.estimator.get_estimated_roi(img_tensor, orig_shape)[0,0,...] # shape [B,1,H,W]
         # self.estimated_mask = self.estimated_mask.cpu().numpy()
         estimated_shape = self.estimated_mask.shape[-2:]
 
+
         if self.is_sequence:
             self.predicted_mask = self.predictor.get_predicted_roi(frame_id, orig_shape, estimated_shape)
-            fused_mask = np.logical_or(self.estimated_mask, self.predicted_mask).astype(np.uint8)*255 # ?
+            fused_mask = torch.logical_or(self.estimated_mask.cpu(), self.predicted_mask).float()
         else:
             fused_mask = self.estimated_mask
 
         t1 = time.time()
-        fused_bboxes = findBboxes(fused_mask, orig_shape, estimated_shape)
+        fused_mask = (fused_mask.numpy() * 255).astype(np.uint8)
+        fused_bboxes = find_bounding_boxes(fused_mask, orig_shape, estimated_shape)
         self.rois_coorinates_times.append(time.time()-t1)
 
         t2 = time.time()
-        detection_windows = getDetectionWindows( # TODO split into detection windows coordinates & filtering
+        detection_windows = get_detection_windows( # TODO split into detection windows coordinates & filtering
             fused_bboxes, 
             orig_shape, 
             det_size=det_shape, 
@@ -64,8 +68,8 @@ class ROIModule:
 
 
     def get_masks(self, shape):
-        estimated_mask = cv2.resize(self.estimated_mask, (shape[1], shape[0]))
-        predicted_mask = cv2.resize(self.predicted_mask, (shape[1], shape[0]))
+        estimated_mask = cv2.resize((self.estimated_mask.cpu().numpy()*255).astype(np.uint8), (shape[1], shape[0]))
+        predicted_mask = cv2.resize((self.predicted_mask.cpu().numpy()*255).astype(np.uint8), (shape[1], shape[0]))
         return estimated_mask, predicted_mask
 
 

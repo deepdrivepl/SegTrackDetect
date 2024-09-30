@@ -4,10 +4,11 @@ import time
 
 import cv2
 import numpy as np
+import kornia
 
 import torch
 from torchvision import transforms as T
-
+from collections import defaultdict
 
 
 
@@ -29,7 +30,6 @@ def letterbox(img, new_shape=(640, 640), color=(114, 114, 114), auto=True, scale
     
     img_in = np.full((*new_shape, 3), color).astype(np.uint8)
     img_in[:new_unpad[1],:new_unpad[0],...] = cv2.resize(img, new_unpad, interpolation=cv2.INTER_LINEAR)
-    # print(img_in.shape, new_unpad)
     return img_in, new_unpad[::-1]
 
 
@@ -37,7 +37,12 @@ def letterbox(img, new_shape=(640, 640), color=(114, 114, 114), auto=True, scale
 class ROIDataset(torch.utils.data.Dataset):
     def __init__(self, paths, dataset, roi_inf_size, roi_transform):
         self.paths = [x for x in paths if os.path.isfile(x)]
-        self.roi_transform = roi_transform(roi_inf_size[0], roi_inf_size[1])
+        # self.roi_transform = roi_transform(roi_inf_size[0], roi_inf_size[1])
+        self.roi_transform = T.Compose([
+            # T.ToTensor(),
+            T.Resize((roi_inf_size[0], roi_inf_size[1]), antialias=True),
+            T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+        ]) 
         self.dataset = dataset
 
 
@@ -49,37 +54,36 @@ class ROIDataset(torch.utils.data.Dataset):
         image = cv2.imread(self.paths[idx])
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         H,W = image.shape[:2]
-        
-        image = self.roi_transform(image)
 
         metadata = {
             'image_path': os.path.abspath(self.paths[idx]),
             'coco': self.dataset.get_image_metadata(self.paths[idx])
-        }            
+        }    
+
     
-        return image, metadata
+        # return self.roi_transform(image), metadata
+        return T.ToTensor()(image), metadata
 
 
-class WindowDetectionDataset(torch.utils.data.Dataset):
-    def __init__(self, path, dataset, bboxes, size):
+
+class WindowDetectionDataset():
+    def __init__(self, img_tensor, path, dataset, bboxes, size):
         self.path = os.path.abspath(path)
-        self.image = cv2.imread(path)[:, :, ::-1]
-        self.image = np.ascontiguousarray(self.image)
-        self.bboxes = torch.tensor(bboxes, dtype=torch.float32)
+
+        self.image = img_tensor.cpu().numpy()[0,...]
+        self.image = np.transpose(self.image, (1,2,0))
+        self.image = (self.image * 255).astype(np.uint8)
+
+        self.bboxes = torch.tensor(bboxes).int()
         self.size = size
         self.transform = T.ToTensor()
         self.h, self.w = self.image.shape[:2]
-        self.dataset = dataset
 
-    def __len__(self):
-        return len(self.bboxes)
 
-    def __getitem__(self, idx):
-
-        t1 = time.time()
+    def get_subwindow(self, idx):
         # Get the bounding box and crop the image
-        xmin, ymin, xmax, ymax = self.bboxes[idx].int().tolist()
-        crop_image = self.image[ymin:ymax, xmin:xmax]
+        xmin, ymin, xmax, ymax = self.bboxes[idx].tolist()
+        crop_image = self.image[ymin:ymax, xmin:xmax] # H,W,C
 
         # Check if rotation is needed using a simpler conditional
         rotate = (crop_image.shape[0] > crop_image.shape[1]) != (self.size[0] > self.size[1])
@@ -101,19 +105,35 @@ class WindowDetectionDataset(torch.utils.data.Dataset):
 
         # Pre-construct metadata tensor
         metadata = {
-            'bbox': self.bboxes[idx],
-            'translate': torch.tensor([xmin, ymin, xmin, ymin], dtype=torch.float32),
-            'image_path': self.path,
-            'rotation': rotate,
-            'resize': (crop_h > self.size[0] or crop_w > self.size[1]),
-            'det_shape': torch.tensor(self.size, dtype=torch.float32),
-            'crop_shape': torch.tensor([crop_h, crop_w], dtype=torch.float32),
-            'unpadded_shape': torch.tensor(unpadded, dtype=torch.int64),
-            'coco': self.dataset.get_image_metadata(self.path),
-            'roi_shape': torch.tensor([ymax - ymin, xmax - xmin], dtype=torch.float32),
-            'time': time.time()-t1
+            'translate': torch.tensor([[xmin, ymin, xmin, ymin]], dtype=torch.float32),
+            'rotation': torch.tensor([[rotate]], dtype=bool),
+            'resize': torch.tensor([[crop_h > self.size[0] or crop_w > self.size[1]]], dtype=bool),
+            'crop_shape': torch.tensor([[crop_h, crop_w]], dtype=torch.float32),
+            'unpadded_shape': torch.tensor([unpadded], dtype=torch.int64),
+            'roi_shape': torch.tensor([[ymax - ymin, xmax - xmin]], dtype=torch.float32),
         }
 
-        return self.transform(img_in), metadata
+        return self.transform(img_in).unsqueeze(0), metadata
 
 
+
+    def get_batch(self):
+
+        batch = []
+        metadata = defaultdict(list)
+        for i in range(self.bboxes.shape[0]):
+            subwindow, meta = self.get_subwindow(i)
+            for k,v in meta.items():
+                metadata[k].append(v)
+            batch.append(subwindow)
+
+        batch = torch.cat(batch)
+        metadata = {k: torch.cat(v) for k,v in metadata.items()}
+        metadata['bbox'] = self.bboxes
+        return batch, metadata
+
+
+
+
+
+    

@@ -4,6 +4,7 @@ import time
 
 from statistics import mean
 
+import torch
 import cv2
 import numpy as np
 
@@ -31,28 +32,36 @@ class Predictor:
 
         t1 = time.time()
         self.predicted_bboxes = self.tracker.get_pred_locations()
+        predicted_bboxes = torch.tensor(self.predicted_bboxes)
         self.prediction_times.append(time.time()-t1)
 
         t2 = time.time()
-        H,W = orig_shape
-        predicted_mask = np.zeros((H, W), dtype=np.uint8)
+        H_orig, W_orig = orig_shape
+        H_est, W_est = estim_shape
+
+
+        predicted_mask = torch.zeros((H_est, W_est), dtype=torch.float)
         if frame_id >= self.frame_delay:
 
-            mot_bboxes = self.predicted_bboxes[:,:-1]
+            mot_bboxes = predicted_bboxes[:, :-1]
 
-            mot_bboxes[:,0] = np.where(mot_bboxes[:,0] < 0, 0, mot_bboxes[:,0])
-            mot_bboxes[:,1] = np.where(mot_bboxes[:,1] < 0, 0, mot_bboxes[:,1])
-            mot_bboxes[:,2] = np.where(mot_bboxes[:,2] >= W, W-1, mot_bboxes[:,2])
-            mot_bboxes[:,3] = np.where(mot_bboxes[:,3] >= H, H-1, mot_bboxes[:,3])
+            scale_x = W_est / W_orig
+            scale_y = H_est / H_orig
 
-            indices = np.nonzero(((mot_bboxes[:,2]-mot_bboxes[:,0]) > 0) & ((mot_bboxes[:,3]-mot_bboxes[:,1]) > 0))
-            mot_bboxes = mot_bboxes[indices[0], :]
+            mot_bboxes[:, 0] = torch.clamp(mot_bboxes[:, 0] * scale_x, 0, W_est - 1)  # xmin
+            mot_bboxes[:, 1] = torch.clamp(mot_bboxes[:, 1] * scale_y, 0, H_est - 1)  # ymin
+            mot_bboxes[:, 2] = torch.clamp(mot_bboxes[:, 2] * scale_x, 0, W_est - 1)  # xmax
+            mot_bboxes[:, 3] = torch.clamp(mot_bboxes[:, 3] * scale_y, 0, H_est - 1)  # ymax
 
-            for mot_bbox in mot_bboxes:
-                xmin,ymin,xmax,ymax = map(int, mot_bbox[:4])
-                predicted_mask[ymin:ymax+1, xmin:xmax+1] = 255
-        predicted_mask = cv2.resize(predicted_mask, (estim_shape[1], estim_shape[0]))
-        self.mask_creation_times.append(time.time()-t2)
+            # Filter valid boxes
+            valid_mask = (mot_bboxes[:, 2] - mot_bboxes[:, 0] > 0) & (mot_bboxes[:, 3] - mot_bboxes[:, 1] > 0)
+            mot_bboxes = mot_bboxes[valid_mask]
+
+            # Vectorized mask creation
+            for xmin, ymin, xmax, ymax in mot_bboxes.int():
+                predicted_mask[ymin:ymax+1, xmin:xmax+1] = 1
+
+        self.mask_creation_times.append(time.time() - t2)
 
         return predicted_mask
 

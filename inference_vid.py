@@ -6,6 +6,7 @@ import time
 from glob import glob
 from tqdm import tqdm
 from statistics import mean
+from collections import defaultdict
 
 import cv2
 import numpy as np
@@ -96,13 +97,14 @@ if __name__ == '__main__':
 
     filter_fn = OBS_SORT_TYPES[args.obs_type]
 
-    obs_times, saving_times = [],[]
     
     # inference
     annotations = []
     all_images = 0
     total_times = []
-    win_times = []
+
+    times = defaultdict(list)
+
     for seq_name, seq_flist in tqdm(seq2images.items()):
         seq_flist = sorted(seq_flist)
 
@@ -110,50 +112,52 @@ if __name__ == '__main__':
         
         dataset = ROIDataset(seq_flist, ds, roi_extractor.estimator.input_size, roi_extractor.estimator.preprocess)
         all_images += len(dataset)
-        dataloader = DataLoader(dataset, batch_size=1, shuffle=False, num_workers=1)
+        dataloader = DataLoader(dataset, batch_size=1, shuffle=False, num_workers=4, pin_memory=True)
 
         with torch.no_grad():
             for i, (img, metadata) in tqdm(enumerate(dataloader)):
 
                 start_batch = time.time()
 
+                img_roi = dataset.roi_transform(img)
                 original_shape = metadata['coco']['height'].item(), metadata['coco']['width'].item()
 
                 # get detection windows from ROI
                 det_bboxes = roi_extractor.get_fused_roi(
                     frame_id = i,
-                    img_tensor = img,
+                    img_tensor = img_roi,
                     orig_shape = original_shape,
                     det_shape = detector.input_size,  
                 )
+                times['roi'].append(time.time()-start_batch)
                 
-                det_dataset =  WindowDetectionDataset(metadata['image_path'][0], ds, det_bboxes, detector.input_size)
-                det_dataloader = DataLoader(det_dataset, batch_size=len(det_dataset) if len(det_dataset)>0 else 1, shuffle=False, num_workers=2) # all windows in a single batch
 
-                img_det_list, img_win_list = [], []
-                for j, (img_det, det_metadata) in enumerate(det_dataloader):
-                    detections = detector.get_detections(img_det)
-                    img_dets, img_wins = detector.postprocess_detections(detections, det_metadata)
-                    img_det_list+=img_dets
-                    img_win_list+=img_wins
-
-                    win_times+=det_metadata['time'].numpy().tolist()
+                t1 = time.time()
+                det_dataset =  WindowDetectionDataset(img, metadata['image_path'][0], ds, det_bboxes, detector.input_size)
+                img_det, det_metadata = det_dataset.get_batch()
+                times['det_get_batch'].append(time.time()-t1)
 
 
-                # Concatenate lists once after loop
-                img_win = torch.cat(img_win_list).to(device)
-                img_det = torch.cat(img_det_list).to(device)
+                t1 = time.time()
+                detections = detector.get_detections(img_det)
+                times['det_infer'].append(time.time()-t1)
+
+                t1 = time.time()
+                img_det, img_win = detector.postprocess_detections(detections, det_metadata)
+
 
                 # Remove NaNs from both img_det and img_win
                 valid_mask = ~torch.any(img_det.isnan(), dim=1)
                 img_win = img_win[valid_mask]
                 img_det = img_det[valid_mask]
+                times['det_postproc'].append(time.time()-t1)
 
-                # Overlapping Box Suppression
                 t1 = time.time()
+                # Overlapping Box Suppression
                 img_win, img_det = filter_fn(img_win, img_det, th=args.obs_iou_th)
-                obs_times.append(time.time()-t1)
+                times['obs'].append(time.time()-t1)
 
+                t1 = time.time()
                 roi_extractor.predictor.update_tracker_state(img_det.detach().cpu().numpy()[:, :-1])
                                                     
                 if args.debug:
@@ -164,7 +168,6 @@ if __name__ == '__main__':
                     os.makedirs(os.path.dirname(out_fname), exist_ok=True)
                     cv2.imwrite(out_fname, frame)
                 
-                t1 = time.time()
                 img_det[:,:4] = xyxy2xywh(img_det[:,:4])
                 for p in img_det.tolist():
                     annotations.append(
@@ -178,41 +181,18 @@ if __name__ == '__main__':
                             "iscrowd": 0,
                         }
                     )
-                saving_times.append(time.time()-t1)
 
                 end_batch = time.time()
-                total_times.append(end_batch-start_batch)
+                times['save_dets'].append(time.time()-t1)
+                times['total'].append(end_batch-start_batch)
         break
 
+    times = {k: sum(v)/all_images for k,v in times.items()}
+    times['fps'] = 1/times['total']
 
-    t_coords, t_det_wins, t_pred, t_estim = roi_extractor.get_execution_times(all_images)
-    t_pred_pred, t_pred_mask, t_pred_update = t_pred
-    t_estim_infer, t_estim_postproc = t_estim
-    t_det_infer, t_det_postproc, t_det_nms, t_det_to_orig = detector.get_execution_times(all_images)
-    t_det_preproc = sum(win_times)/all_images
+    times = pd.DataFrame(times, index=[0])
 
-    times = pd.DataFrame.from_dict({
-        "estim_infer": [t_estim_infer*1000],
-        "estim_postproc": [t_estim_postproc*1000],
-        "pred_pred": [t_pred_pred*1000],
-        "pred_mask": [t_pred_mask*1000],
-        "pred_update": [t_pred_update*1000],
-        "fusion_roi_coords": [t_coords*1000],
-        "fusion_det_windows": [t_det_wins*1000],
-        "det_preproc": [t_det_preproc*1000],
-        "det_infer": [t_det_infer*1000],
-        "det_nms": [(t_det_postproc+t_det_nms)*1000],
-        "det_postprocessing": [t_det_to_orig*1000],
-        "obs": [(sum(obs_times)/all_images)*1000],
-        "saving_dets": [(sum(saving_times)/all_images)*1000],
-        "total_times [s]": sum(total_times),
-        "num_frames": all_images,
-        "avg_time_per_img [s]": sum(total_times)/all_images,
-        "FPS": all_images/sum(total_times)
-    })
-    print(times)
-
-    times.to_csv(os.path.join(args.out_dir, 'times-ms.csv'), index=False)
+    times.to_csv(os.path.join(args.out_dir, 'times.csv'), index=False)
 
         
     with open(os.path.join(args.out_dir, f'results-{args.split if args.flist is None else args.name}.json'), 'w', encoding='utf-8') as f:

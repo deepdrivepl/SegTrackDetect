@@ -109,7 +109,7 @@ class Detector:
 
         self.postprocess_to_orig_times.append(time.time()-t1)
 
-        return img_det_list, img_win_list
+        return torch.cat(img_det_list), torch.cat(img_win_list).to(self.device)
 
 
     def get_execution_times(self, num_images):

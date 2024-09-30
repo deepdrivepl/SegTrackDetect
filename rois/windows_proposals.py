@@ -5,8 +5,12 @@ import cv2
 import numpy as np
 
 import torch
+import kornia
 from torchvision import transforms as T
 from collections import OrderedDict
+
+import torch.nn.functional as F
+from torchvision.ops import boxes
 
 
 def getSlidingWindowBBoxes(win_bbox, det_size, max_H, max_W, overlap_px = 20):
@@ -35,30 +39,35 @@ def getSlidingWindowBBoxes(win_bbox, det_size, max_H, max_W, overlap_px = 20):
     return bboxes, full_bbox
 
 
-def findBboxes(label, original_shape, current_shape):
-    H,W = original_shape
-    _H,_W = current_shape
-    label[label>0] = 255
-    contours = cv2.findContours(label, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    contours = contours[0] if len(contours) == 2 else contours[1]
-    
-    if len(contours) == 0:
-        return np.empty((0,4))
-    
-    bboxes = []
-    for i, cntr in enumerate(contours):
-        x,y,w,h = cv2.boundingRect(cntr)
-        xmin, ymin = (x/_W)*W, (y/_H)*H
-        xmax, ymax = ((x+w)/_W)*W, ((y+h)/_H)*H
 
-        xmin, ymin = max(0, int(xmin)), max(0, int(ymin))
-        xmax, ymax = min(W, int(xmax)), min(H, int(ymax))
-        
-        bboxes.append([xmin,ymin,xmax,ymax])
-    return np.array(bboxes)
+def find_bounding_boxes(binary_mask, original_shape, current_shape):
+    orig_height, orig_width = original_shape
+    curr_height, curr_width = current_shape
+
+    scale_x = orig_width / curr_width
+    scale_y = orig_height / curr_height
+
+    # Find contours
+    contours, _ = cv2.findContours(binary_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+    # Return empty array if no contours
+    if not contours:
+        return np.empty((0, 4))
+
+    bounding_boxes = []
+    for contour in contours:
+        x, y, w, h = cv2.boundingRect(contour)
+        xmin = max(0, int(x * scale_x))
+        ymin = max(0, int(y * scale_y))
+        xmax = min(orig_width, int((x + w) * scale_x))
+        ymax = min(orig_height, int((y + h) * scale_y))
+
+        bounding_boxes.append([xmin, ymin, xmax, ymax])
+
+    return np.array(bounding_boxes)
 
 
-def getDetectionWindows(bboxes, orig_shape, det_size=(960, 960), bbox_type='naive', allow_resize=True):
+def get_detection_windows(bboxes, orig_shape, det_size=(960, 960), bbox_type='naive', allow_resize=True):
     max_H, max_W = orig_shape
     if bbox_type == 'naive':
         bboxes = getDetectionBboxesNaive(bboxes, max_H, max_W, det_size=det_size, allow_resize=allow_resize)
