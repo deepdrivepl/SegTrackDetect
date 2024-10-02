@@ -15,7 +15,7 @@ import pandas as pd
 import torch
 from torch.utils.data import DataLoader
 
-from datasets import ROIDataset, WindowDetectionDataset, DATASETS
+from datasets import WindowDetectionDataset, ROIDataset, DATASETS
 from drawing import make_vis
 
 from rois import ROIModule
@@ -133,7 +133,7 @@ if __name__ == '__main__':
                 
 
                 t1 = time.time()
-                det_dataset =  WindowDetectionDataset(img, metadata['image_path'][0], ds, det_bboxes, detector.input_size)
+                det_dataset =  WindowDetectionDataset(img.to(device), metadata['image_path'][0], ds, det_bboxes, detector.input_size)
                 img_det, det_metadata = det_dataset.get_batch()
                 times['det_get_batch'].append(time.time()-t1)
 
@@ -185,13 +185,11 @@ if __name__ == '__main__':
                 end_batch = time.time()
                 times['save_dets'].append(time.time()-t1)
                 times['total'].append(end_batch-start_batch)
-        break
+        # break
 
     times = {k: sum(v)/all_images for k,v in times.items()}
     times['fps'] = 1/times['total']
-
     times = pd.DataFrame(times, index=[0])
-
     times.to_csv(os.path.join(args.out_dir, 'times.csv'), index=False)
 
         
