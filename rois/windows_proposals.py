@@ -13,32 +13,6 @@ import torch.nn.functional as F
 from torchvision.ops import boxes
 
 
-def getSlidingWindowBBoxes(win_bbox, det_size, max_H, max_W, overlap_px = 20):
-    h,w = det_size
-
-    xmin, ymin, xmax, ymax = win_bbox
-    win_h, win_w = ymax-ymin, xmax-xmin
-
-    n_x = math.ceil(win_w / (w-overlap_px))
-    n_y = math.ceil(win_h / (h-overlap_px))
-
-    XS = np.array([xmin+(w-overlap_px)*n for n in range(n_x)])
-    YS = np.array([ymin+(h-overlap_px)*n for n in range(n_y)])
-
-    max_xmax = XS[-1]+w
-    max_ymax = YS[-1]+h
-
-    bboxes = []
-    for _xmin in XS:
-        for _ymin in YS:
-            _xmin,_ymin = [int(_) for _ in [_xmin,_ymin]]
-            # _xmax,_ymax = min(_xmin+w, max_W), min(_ymin+h, max_H)
-            _xmax,_ymax = min(_xmin+w, xmax), min(_ymin+h, ymax)
-            bboxes.append([_xmin, _ymin, _xmax, _ymax])
-    full_bbox = [min([x[0] for x in bboxes]), min([x[1] for x in bboxes]), max([x[2] for x in bboxes]),  max([x[3] for x in bboxes])]
-    return bboxes, full_bbox
-
-
 
 def find_bounding_boxes(binary_mask, original_shape, current_shape):
     orig_height, orig_width = original_shape
@@ -64,7 +38,7 @@ def find_bounding_boxes(binary_mask, original_shape, current_shape):
 
         bounding_boxes.append([xmin, ymin, xmax, ymax])
 
-    return np.array(bounding_boxes)
+    return np.array(bounding_boxes).astype(np.int32)
 
 
 def get_detection_windows(bboxes, orig_shape, det_size=(960, 960), bbox_type='naive', allow_resize=True):
@@ -77,7 +51,7 @@ def get_detection_windows(bboxes, orig_shape, det_size=(960, 960), bbox_type='na
         bboxes =  getDetectionBboxesSorted(bboxes, max_H, max_W, det_size=det_size, allow_resize=allow_resize)
     else:
         raise NotImplementedError
-    return bboxes
+    return np.array(bboxes).astype(np.int32)
 
 
 def isInsidePoint(bbox, point):
@@ -128,47 +102,89 @@ def rotate(bbox_roi, det_size):
     if same_orientation(h_roi, w_roi, h_window, w_window):
         return False
     return True
-    
-    
+
+
+def getSlidingWindowBBoxes(win_bbox, det_size, max_H, max_W, overlap_px = 20):
+    h,w = det_size
+
+    xmin, ymin, xmax, ymax = win_bbox
+    win_h, win_w = ymax-ymin, xmax-xmin
+
+    n_x = math.ceil(win_w / (w-overlap_px))
+    n_y = math.ceil(win_h / (h-overlap_px))
+
+    XS = np.array([xmin+(w-overlap_px)*n for n in range(n_x)])
+    YS = np.array([ymin+(h-overlap_px)*n for n in range(n_y)])
+
+    max_xmax = XS[-1]+w
+    max_ymax = YS[-1]+h
+
+    bboxes = []
+    for _xmin in XS:
+        for _ymin in YS:
+            _xmin,_ymin = [int(_) for _ in [_xmin,_ymin]]
+            # _xmax,_ymax = min(_xmin+w, max_W), min(_ymin+h, max_H)
+            _xmax,_ymax = min(_xmin+w, xmax), min(_ymin+h, ymax)
+            bboxes.append([_xmin, _ymin, _xmax, _ymax])
+    full_bbox = [min([x[0] for x in bboxes]), min([x[1] for x in bboxes]), max([x[2] for x in bboxes]),  max([x[3] for x in bboxes])]
+    return bboxes, full_bbox
+
+
 # should return crop coordinates - resizing handled in a datataloader
-def getDetectionBbox(bbox, max_H, max_W, det_size, padding=20, allow_resize=False):
+def get_detection_bbox(bbox, max_H, max_W, det_size, padding=20, allow_resize=False):
 
     if rotate(bbox, det_size):
         w,h = det_size
     else:
         h,w = det_size
+    ar = h/w 
         
     xmin, ymin, xmax, ymax = bbox
     h_roi, w_roi = ymax-ymin, xmax-xmin
 
+    # sliding-window within ROI region
     if (h_roi > h or w_roi > w) and not allow_resize:
-        crop_bboxes, full_bbox = getSlidingWindowBBoxes(bbox, det_size, max_H, max_W)
+        crop_bboxes, full_bbox = getSlidingWindowBBoxes(bbox, det_size, max_H, max_W) # check if empty
         return crop_bboxes, [full_bbox]
 
-    if h_roi > h: # padding - keep some space between returned roi and the detection window 
-        h = h_roi + padding 
-    if w_roi > w:
-        w = w_roi + padding
+    # Apply padding if needed
+    h_roi = max(h_roi + padding, h)
+    w_roi = max(w_roi + padding, w)
 
+    # Adjust ROI size to maintain aspect ratio
+    if h_roi / w_roi != ar:
+        if h_roi / w_roi > ar:  # ROI is taller, adjust width
+            w_roi = h_roi / ar
+        else:  # ROI is wider, adjust height
+            h_roi = w_roi * ar
 
     xc = (xmax+xmin)//2
     yc = (ymin+ymax)//2
 
-    xmin = max(xc - w//2, 0)
-    ymin = max(yc - h//2, 0)
+    xmin = max(xc - w_roi//2, 0)
+    ymin = max(yc - h_roi//2, 0)
 
-    xmax = min(xmin+w, max_W)
-    ymax = min(ymin+h, max_H)
+    xmax = xmin+w_roi
+    ymax = ymin+h_roi
 
+    if xmax > max_W:
+        dx = xmax-max_W
+        xmin = max(xmin - dx, 0)
+        xmax = max(xmax - dx, 0)
+    if ymax > max_H:
+        dy = ymax-max_H
+        ymin = max(ymin - dy, 0)
+        ymax = max(ymax - dy, 0)
 
     crop_bbox = [xmin, ymin, xmax, ymax]
     return [crop_bbox], [crop_bbox]
-                
+
+
         
 def getDetectionBboxesAll(bboxes, max_H, max_W, det_size, allow_resize):
     det_bboxes = []
     for bbox in bboxes:
-        det_bboxes += getDetectionBbox(bbox,  max_H, max_W, det_size=det_size, allow_resize=allow_resize)[0]
+        det_bboxes += get_detection_bbox(bbox,  max_H, max_W, det_size=det_size, allow_resize=allow_resize)[0]
     return det_bboxes
 
 # fix filtering 
@@ -180,7 +196,7 @@ def getDetectionBboxesNaive(rois, max_H, max_W, det_size, allow_resize):
         if any([isInsideBbox(roi, full_det_window) for full_det_window in full_det_windows]):
             continue
             
-        det_win, full_det_win = getDetectionBbox(roi,  max_H, max_W, det_size=det_size, allow_resize=allow_resize)
+        det_win, full_det_win = get_detection_bbox(roi,  max_H, max_W, det_size=det_size, allow_resize=allow_resize)
         det_windows += det_win
         full_det_windows += full_det_win
     return det_windows
@@ -189,7 +205,7 @@ def getDetectionBboxesNaive(rois, max_H, max_W, det_size, allow_resize):
 def getDetectionBboxesSorted(rois, max_H, max_W, det_size, allow_resize):
     det_windows = []
     for i, roi in enumerate(rois):
-        det_windows += getDetectionBbox(roi, max_H, max_W, det_size=det_size, allow_resize=allow_resize)[1]
+        det_windows += get_detection_bbox(roi, max_H, max_W, det_size=det_size, allow_resize=allow_resize)[1]
 
 
     hits = {i: 0 for i in range(len(det_windows))}
