@@ -21,7 +21,6 @@ def letterbox_torch(img, new_shape=(640, 640), color=0.56):
 
     # Scale ratio (new / old)
     r = min(new_shape[0] / shape[0], new_shape[1] / shape[1])
-    # r = min(r, 1.0)  # only scale down
 
     # Compute padding
     new_unpad = int(round(shape[0] * r)), int(round(shape[1] * r))  # height, width
@@ -31,10 +30,7 @@ def letterbox_torch(img, new_shape=(640, 640), color=0.56):
     resized_img = (resized_img * 255).to(torch.uint8)
     resized_img = (resized_img / 255.0).to(torch.float32)
 
-    padded_img = torch.full((img.shape[0], *new_shape), color, dtype=img.dtype, device=img.device)
-    padded_img[..., :new_unpad[0], :new_unpad[1]] = resized_img
-
-    return padded_img, (new_unpad[0], new_unpad[1])
+    return resized_img, (new_unpad[0], new_unpad[1])
 
 
 class ROIDataset(torch.utils.data.Dataset):
@@ -74,6 +70,7 @@ class WindowDetectionDataset():
         self.path = path
         self.image = img_tensor[0] 
         self.bboxes = torch.tensor(bboxes, dtype=torch.int)
+
         self.size = size
         self.transform = T.ToTensor()
         self.h, self.w = self.image.shape[-2:]
@@ -83,13 +80,14 @@ class WindowDetectionDataset():
         xmin, ymin, xmax, ymax = self.bboxes[idx].tolist()
         crop_image = self.image[..., ymin:ymax, xmin:xmax]  # Crop: [C, H, W]
         
+        
         # Check if rotation is needed
         rotate = (crop_image.shape[-2] > crop_image.shape[-1]) != (self.size[0] > self.size[1])
 
         # Rotate if necessary
         if rotate:
-            # crop_image = kornia.geometry.rotate(crop_image.unsqueeze(0), torch.tensor([-90.0], device=crop_image.device)).squeeze(0)
             crop_image = torch.rot90(crop_image, k=-1, dims=(-2, -1))
+
 
         # Resize and handle padding
         crop_h, crop_w = crop_image.shape[-2:]
@@ -103,7 +101,7 @@ class WindowDetectionDataset():
         img_in = torch.full((crop_image.shape[0], *self.size), 0.56, dtype=crop_image.dtype, device=crop_image.device)
         img_in[..., :crop_image.shape[-2], :crop_image.shape[-1]] = crop_image
 
-        # Metadata tensor
+
         metadata = {
             'translate': torch.tensor([[xmin, ymin, xmin, ymin]], dtype=torch.float32, device=crop_image.device),
             'rotation': torch.tensor([[rotate]], dtype=torch.bool, device=crop_image.device),
@@ -130,4 +128,6 @@ class WindowDetectionDataset():
         metadata = {k: torch.cat(v) for k, v in metadata.items()}
         metadata['bbox'] = self.bboxes
         return batch, metadata
+
+
     
