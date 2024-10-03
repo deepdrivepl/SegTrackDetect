@@ -26,12 +26,12 @@ def unet_postprocess(output, ori_shape, sigmoid_included=False, thresh=None, dil
 ZeF20 = dict(
     weights = "weights/unetR18-ZebraFish.pt",
     in_size = (160,256),
-    thresh = None,
+    thresh = 0.5,
     args = None,
     transform = estimator_transform,
-    sigmoid_included = False,
+    sigmoid_included = True,
     postprocess = unet_postprocess,
-    dilate = True, # TODO - best metrics (padding 10, dilate 7, letterbox)
+    dilate = True, 
     k_size = 7,
     iter = 1
 
