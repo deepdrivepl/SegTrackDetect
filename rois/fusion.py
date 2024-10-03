@@ -33,12 +33,12 @@ class ROIModule:
         # self.estimated_mask = self.estimated_mask.cpu().numpy()
         estimated_shape = self.estimated_mask.shape[-2:]
 
-
         if self.is_sequence:
             self.predicted_mask = self.predictor.get_predicted_roi(frame_id, orig_shape, estimated_shape)
             fused_mask = torch.logical_or(self.estimated_mask.cpu(), self.predicted_mask).float()
         else:
             fused_mask = self.estimated_mask
+
 
         t1 = time.time()
         fused_mask = (fused_mask.numpy() * 255).astype(np.uint8)
@@ -53,8 +53,6 @@ class ROIModule:
             bbox_type=self.bbox_type,
             allow_resize=self.allow_resize,
         )
-
-        detection_windows = np.array(detection_windows).astype(np.int32)
                 
         if len(detection_windows) > 0:
             indices = np.nonzero(((detection_windows[:,2]-detection_windows[:,0]) > 0) & ((detection_windows[:,3]-detection_windows[:,1]) > 0))
