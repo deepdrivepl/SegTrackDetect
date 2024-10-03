@@ -144,12 +144,6 @@ if __name__ == '__main__':
 
                 t1 = time.time()
                 img_det, img_win = detector.postprocess_detections(detections, det_metadata)
-
-
-                # Remove NaNs from both img_det and img_win
-                valid_mask = ~torch.any(img_det.isnan(), dim=1)
-                img_win = img_win[valid_mask]
-                img_det = img_det[valid_mask]
                 times['det_postproc'].append(time.time()-t1)
 
                 t1 = time.time()

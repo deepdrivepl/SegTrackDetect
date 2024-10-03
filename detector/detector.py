@@ -107,9 +107,24 @@ class Detector:
 
             img_det_list.append(detection)
 
+        if img_det_list and img_win_list:
+            img_det = torch.cat(img_det_list)
+            img_win = torch.cat(img_win_list).to(self.device)
+
+            # Remove NaNs from both img_det and img_win
+            valid_mask = ~torch.any(img_det.isnan(), dim=1)
+            img_win = img_win[valid_mask]
+            img_det = img_det[valid_mask]
+
+        else:
+            img_det = torch.empty((0,6), device=self.device)
+            img_win = torch.empty((0,4), device=self.device)
+
+
         self.postprocess_to_orig_times.append(time.time()-t1)
 
-        return torch.cat(img_det_list), torch.cat(img_win_list).to(self.device)
+        
+        return img_det, img_win
 
 
     def get_execution_times(self, num_images):
