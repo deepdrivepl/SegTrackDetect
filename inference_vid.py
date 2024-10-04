@@ -19,9 +19,8 @@ from datasets import WindowDetectionDataset, ROIDataset, DATASETS
 from drawing import make_vis
 
 from rois import ROIModule
-from detector import Detector
+from detector import Detector, overlapping_box_suppression
 from detector.aggregation import xyxy2xywh
-from detector.obs import OBS_SORT_TYPES
 
 
 
@@ -50,7 +49,6 @@ if __name__ == '__main__':
     parser.add_argument('--vis_conf_th', type=float, default=0.3)
         
     # OBS
-    parser.add_argument('--obs_type', type=str, choices=['iou', 'conf', 'area', 'all', 'none'], default='all') # one fixed method
     parser.add_argument('--obs_iou_th', type=float, default=0.7)
     args = parser.parse_args()
     
@@ -94,8 +92,6 @@ if __name__ == '__main__':
     with open(os.path.join(args.out_dir, "configs.json"), 'w', encoding='utf-8') as f:
         config = {**roi_extractor_config, **detector_config}
         json.dump(config, f, ensure_ascii=False, indent=4)
-
-    filter_fn = OBS_SORT_TYPES[args.obs_type]
 
     
     # inference
@@ -148,7 +144,7 @@ if __name__ == '__main__':
 
                 t1 = time.time()
                 # Overlapping Box Suppression
-                img_win, img_det = filter_fn(img_win, img_det, th=args.obs_iou_th)
+                img_win, img_det = overlapping_box_suppression(img_win, img_det, th=args.obs_iou_th)
                 times['obs'].append(time.time()-t1)
 
                 t1 = time.time()

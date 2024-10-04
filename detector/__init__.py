@@ -1,2 +1,2 @@
-from .obs import OBS_SORT_TYPES
+from .obs import overlapping_box_suppression
 from .detector import Detector
