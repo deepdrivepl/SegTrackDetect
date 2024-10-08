@@ -21,10 +21,17 @@ if __name__ == '__main__':
     parser.add_argument('--gt_path', type=str, default='data/SeaDronesSee/test_dev.json')
     parser.add_argument('--th', type=float, default=0.01)
     parser.add_argument('--csv', type=str, default='checks/metrics.csv')
+    parser.add_argument('--dc', default=False, action='store_true')
     args = parser.parse_args()
 
 
     names = ['name', 'AP', 'AP50', 'AP75', 'APu', 'APvt', 'APt', 'APs', 'APm', 'APl', 'AR1', 'AR10', 'AR100', 'ARu', 'ARvt', 'ARt', 'ARs', 'ARm', 'ARl']
+    max_dets = [1,10,100]
+    iou_th = None
+    if args.dc:
+        names = ['name', 'AP', 'AP50', 'AP75', 'APu', 'APvt', 'APt', 'APs', 'APm', 'APl', 'AR500', 'ARu', 'ARvt', 'ARt', 'ARs', 'ARm', 'ARl']
+        max_dets = [500]
+        iou_th = 0.5
 
 
     detections = glob(f'{args.dir}/results*.json')
@@ -49,7 +56,8 @@ if __name__ == '__main__':
 
     anno = COCO(args.gt_path)
     pred = anno.loadRes(th_path) 
-    eval = COCOeval(anno, pred, 'bbox')
+    print(f'Running validation with iouThr={iou_th}, maxDets={max_dets}, names={names}')
+    eval = COCOeval(anno, pred, 'bbox', iouThr=iou_th, maxDets=max_dets)
 
     imgIds = sorted(anno.getImgIds())
     eval.params.imgIds = imgIds
