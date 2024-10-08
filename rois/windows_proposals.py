@@ -41,51 +41,6 @@ def find_bounding_boxes(binary_mask, original_shape, current_shape):
     return np.array(bounding_boxes).astype(np.int32)
 
 
-def get_detection_windows(bboxes, orig_shape, det_size=(960, 960), bbox_type='naive', allow_resize=True):
-    max_H, max_W = orig_shape
-    if bbox_type == 'naive':
-        bboxes = getDetectionBboxesNaive(bboxes, max_H, max_W, det_size=det_size, allow_resize=allow_resize)
-    elif bbox_type == 'all':
-        bboxes =  getDetectionBboxesAll(bboxes, max_H, max_W, det_size=det_size, allow_resize=allow_resize)
-    elif bbox_type == 'sorted':
-        bboxes =  getDetectionBboxesSorted(bboxes, max_H, max_W, det_size=det_size, allow_resize=allow_resize)
-    else:
-        raise NotImplementedError
-    return np.array(bboxes).astype(np.int32)
-
-
-def isInsidePoint(bbox, point):
-    xmin, ymin, xmax, ymax = bbox
-    x, y = point
-    if xmin<=x<=xmax and ymin<=y<=ymax:
-        return True
-    
-def isInsideBbox(inner_bbox, outer_bbox):
-    xmin,ymin,xmax,ymax = inner_bbox
-    p1, p2, p3, p4 = (xmin,ymin), (xmax,ymin), (xmax, ymax), (xmin, ymax)
-    return all([isInsidePoint(outer_bbox, point) for point in [p1,p2,p3,p4]])
-
-
-def WindowIoU(boxA, boxB):
-    # determine the (x, y)-coordinates of the intersection rectangle
-    xA = max(boxA[0], boxB[0])
-    yA = max(boxA[1], boxB[1])
-    xB = min(boxA[2], boxB[2])
-    yB = min(boxA[3], boxB[3])
-    # compute the area of intersection rectangle
-    interArea = max(0, xB - xA + 1) * max(0, yB - yA + 1)
-    # compute the area of both the prediction and ground-truth
-    # rectangles
-    boxAArea = (boxA[2] - boxA[0] + 1) * (boxA[3] - boxA[1] + 1)
-    boxBArea = (boxB[2] - boxB[0] + 1) * (boxB[3] - boxB[1] + 1)
-    # compute the intersection over union by taking the intersection
-    # area and dividing it by the sum of prediction + ground-truth
-    # areas - the interesection area
-    iou = interArea / float(boxAArea + boxBArea - interArea)
-    # return the intersection over union value
-    return iou
-
-
 def same_orientation(h_roi, w_roi, h_window, w_window):
     if h_roi >= w_roi and h_window >= w_window:
         return True
@@ -94,8 +49,8 @@ def same_orientation(h_roi, w_roi, h_window, w_window):
     return False
 
 
-def rotate(bbox_roi, det_size):
-    h_window, w_window = det_size
+def rotate(bbox_roi, det_shape):
+    h_window, w_window = det_shape
     xmin, ymin, xmax, ymax = bbox_roi
     h_roi, w_roi = ymax-ymin, xmax-xmin
     
@@ -104,14 +59,14 @@ def rotate(bbox_roi, det_size):
     return True
 
 
-def getSlidingWindowBBoxes(win_bbox, det_size, max_H, max_W, overlap_px = 20):
-    h,w = det_size
+def get_sliding_windows(roi_bbox, img_shape, det_shape, overlap_px = 20):
+    h,w = det_shape
 
-    xmin, ymin, xmax, ymax = win_bbox
-    win_h, win_w = ymax-ymin, xmax-xmin
+    xmin, ymin, xmax, ymax = roi_bbox
+    roi_h, roi_w = ymax-ymin, xmax-xmin
 
-    n_x = math.ceil(win_w / (w-overlap_px))
-    n_y = math.ceil(win_h / (h-overlap_px))
+    n_x = math.ceil(roi_w / (w-overlap_px))
+    n_y = math.ceil(roi_h / (h-overlap_px))
 
     XS = np.array([xmin+(w-overlap_px)*n for n in range(n_x)])
     YS = np.array([ymin+(h-overlap_px)*n for n in range(n_y)])
@@ -123,7 +78,7 @@ def getSlidingWindowBBoxes(win_bbox, det_size, max_H, max_W, overlap_px = 20):
     for _xmin in XS:
         for _ymin in YS:
             _xmin,_ymin = [int(_) for _ in [_xmin,_ymin]]
-            # _xmax,_ymax = min(_xmin+w, max_W), min(_ymin+h, max_H)
+            # _xmax,_ymax = min(_xmin+w, img_shape[1]), min(_ymin+h, img_shape[0])
             _xmax,_ymax = min(_xmin+w, xmax), min(_ymin+h, ymax)
             bboxes.append([_xmin, _ymin, _xmax, _ymax])
     full_bbox = [min([x[0] for x in bboxes]), min([x[1] for x in bboxes]), max([x[2] for x in bboxes]),  max([x[3] for x in bboxes])]
@@ -131,20 +86,21 @@ def getSlidingWindowBBoxes(win_bbox, det_size, max_H, max_W, overlap_px = 20):
 
 
 # should return crop coordinates - resizing handled in a datataloader
-def get_detection_bbox(bbox, max_H, max_W, det_size, padding=20, allow_resize=False):
-
-    if rotate(bbox, det_size):
-        w,h = det_size
+def get_detection_window(roi_bbox, img_shape, det_shape, padding=20, allow_resize=False):
+    rot = rotate(roi_bbox, det_shape)
+    if rot:
+        w,h = det_shape
     else:
-        h,w = det_size
+        h,w = det_shape
     ar = h/w 
         
-    xmin, ymin, xmax, ymax = bbox
+    xmin, ymin, xmax, ymax = roi_bbox
     h_roi, w_roi = ymax-ymin, xmax-xmin
 
     # sliding-window within ROI region
-    if (h_roi > h or w_roi > w) and not allow_resize:
-        crop_bboxes, full_bbox = getSlidingWindowBBoxes(bbox, det_size, max_H, max_W) # check if empty
+    needs_sliding = (h_roi > h or w_roi > w) and not allow_resize
+    if needs_sliding:
+        crop_bboxes, full_bbox = get_sliding_windows(roi_bbox, img_shape, det_shape) # check if empty
         return crop_bboxes, [full_bbox]
 
     # Apply padding if needed
@@ -167,12 +123,12 @@ def get_detection_bbox(bbox, max_H, max_W, det_size, padding=20, allow_resize=Fa
     xmax = xmin+w_roi
     ymax = ymin+h_roi
 
-    if xmax > max_W:
-        dx = xmax-max_W
+    if xmax > img_shape[1]:
+        dx = xmax-img_shape[1]
         xmin = max(xmin - dx, 0)
         xmax = max(xmax - dx, 0)
-    if ymax > max_H:
-        dy = ymax-max_H
+    if ymax > img_shape[0]:
+        dy = ymax-img_shape[0]
         ymin = max(ymin - dy, 0)
         ymax = max(ymax - dy, 0)
 
@@ -180,41 +136,64 @@ def get_detection_bbox(bbox, max_H, max_W, det_size, padding=20, allow_resize=Fa
     return [crop_bbox], [crop_bbox]
 
 
-        
-def getDetectionBboxesAll(bboxes, max_H, max_W, det_size, allow_resize):
-    det_bboxes = []
-    for bbox in bboxes:
-        det_bboxes += get_detection_bbox(bbox,  max_H, max_W, det_size=det_size, allow_resize=allow_resize)[0]
-    return det_bboxes
+
+def get_detection_windows(rois, img_shape, det_shape=(960, 960), bbox_type='naive', allow_resize=True):
+
+    crop_windows, full_windows = [], []
+    for roi in rois:
+        crop, full = get_detection_window(roi, img_shape, det_shape=det_shape, allow_resize=allow_resize)
+        crop_windows+=crop
+        full_windows+=full
+
+    if bbox_type == 'all':
+        det_windows = crop_windows
+    elif bbox_type == 'naive':
+        det_windows = filter_detection_windows_naive(rois, crop_windows, full_windows, img_shape, det_shape=det_shape, allow_resize=allow_resize)
+    elif bbox_type == 'sorted':
+        det_windows =  filter_detection_windows_sorted(rois, crop_windows, full_windows, img_shape, det_shape=det_shape, allow_resize=allow_resize)
+    else:
+        raise NotImplementedError
+    return np.array(det_windows).astype(np.int32)
+
+
+    
+def is_bbox_inside_bbox(inner_bbox, outer_bbox):
+    def is_point_inside_bbox(point, bbox):
+        xmin, ymin, xmax, ymax = bbox
+        x, y = point
+        if xmin<=x<=xmax and ymin<=y<=ymax:
+            return True
+
+    xmin,ymin,xmax,ymax = inner_bbox
+    p1, p2, p3, p4 = (xmin,ymin), (xmax,ymin), (xmax, ymax), (xmin, ymax)
+    return all([is_point_inside_bbox(point, outer_bbox) for point in [p1,p2,p3,p4]])
+
+
 
 # fix filtering 
-def getDetectionBboxesNaive(rois, max_H, max_W, det_size, allow_resize):
-    det_windows = []
-    full_det_windows = []
+def filter_detection_windows_naive(rois, crop_windows, full_windows, img_shape, det_shape, allow_resize):
     
-    for i, roi in enumerate(rois):
-        if any([isInsideBbox(roi, full_det_window) for full_det_window in full_det_windows]):
+    final_crop_windows, final_full_windows = [],[]
+    for roi, crop_window, full_window in zip(rois, crop_windows, full_windows):
+        if any([is_bbox_inside_bbox(roi, final_full_window) for final_full_window in final_full_windows]):
             continue
             
-        det_win, full_det_win = get_detection_bbox(roi,  max_H, max_W, det_size=det_size, allow_resize=allow_resize)
-        det_windows += det_win
-        full_det_windows += full_det_win
-    return det_windows
+        final_crop_windows.append(crop_window)
+        final_full_windows.append(full_window)
+
+    return final_crop_windows
 
 
-def getDetectionBboxesSorted(rois, max_H, max_W, det_size, allow_resize):
-    det_windows = []
-    for i, roi in enumerate(rois):
-        det_windows += get_detection_bbox(roi, max_H, max_W, det_size=det_size, allow_resize=allow_resize)[1]
-
-
-    hits = {i: 0 for i in range(len(det_windows))}
-    for i, det_window in enumerate(det_windows):
-        hits[i]+=sum([isInsideBbox(roi, det_window) for roi in rois])
+def filter_detection_windows_sorted(rois, crop_windows, full_windows, img_shape, det_shape, allow_resize):
+    hits = {i: 0 for i in range(len(full_windows))}
+    for i, full_window in enumerate(full_windows):
+        hits[i]+=sum([is_bbox_inside_bbox(roi, full_window) for roi in rois])
 
     # hits - how many rois inside each window, sort - det_windows with many rois first
     hits = OrderedDict(sorted(hits.items(), key=lambda item: item[1], reverse=True))
-    rois = [rois[i] for i in hits.keys()] # rois with windows encapsulating many other rois first
+    rois = [rois[i] for i in hits.keys()]
+    crop_windows = [crop_windows[i] for i in hits.keys()]
+    full_windows = [full_windows[i] for i in hits.keys()]
 
-    final_det_windows = getDetectionBboxesNaive(rois, max_H, max_W, det_size=det_size, allow_resize=allow_resize)
-    return final_det_windows 
+    final_crop_windows = filter_detection_windows_naive(rois, crop_windows, full_windows, img_shape, det_shape=det_shape, allow_resize=allow_resize)
+    return final_crop_windows 
