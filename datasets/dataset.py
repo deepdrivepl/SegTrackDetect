@@ -36,18 +36,13 @@ def letterbox_torch(img, new_shape=(640, 640), color=0.56):
 class ROIDataset(torch.utils.data.Dataset):
     def __init__(self, paths, dataset, roi_inf_size, roi_transform):
         self.paths = [x for x in paths if os.path.isfile(x)]
-        # self.roi_transform = roi_transform(roi_inf_size[0], roi_inf_size[1])
-        self.roi_transform = T.Compose([
-            # T.ToTensor(),
-            T.Resize((roi_inf_size[0], roi_inf_size[1]), antialias=True),
-            T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-        ]) 
+        self.roi_transform = roi_transform(roi_inf_size[0], roi_inf_size[1])
         self.dataset = dataset
-
 
 
     def __len__(self):
         return len(self.paths)
+
 
     def __getitem__(self,idx):
         image = cv2.imread(self.paths[idx])
@@ -59,8 +54,6 @@ class ROIDataset(torch.utils.data.Dataset):
             'coco': self.dataset.get_image_metadata(self.paths[idx])
         }    
 
-    
-        # return self.roi_transform(image), metadata
         return T.ToTensor()(image), metadata
 
 
