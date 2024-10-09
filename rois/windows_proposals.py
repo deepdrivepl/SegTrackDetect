@@ -106,7 +106,7 @@ def get_sliding_windows_vect(roi_bboxes, img_shape, det_shape, overlap_px=20):
 
     # Calculate the full bounding box that covers the entire sliding window region for each ROI
     full_bboxes = np.array([
-        [np.min(XS[i]), np.min(YS[i]), np.min([np.max(XS[i]) + w, xmax[i]]), np.min([np.max(YS[i]) + h, ymax[i]])]
+        [np.min(XS[i]), np.min(YS[i]), np.min([np.max(XS[i]) + w, img_shape[1]]), np.min([np.max(YS[i]) + h, img_shape[0]])]
         for i in range(len(roi_bboxes))
     ])
 
@@ -266,7 +266,7 @@ def get_detection_windows(rois, img_shape, det_shape=(960, 960), bbox_type='naiv
         det_windows =  filter_detection_windows_sorted(rois, crop_windows, full_windows, img_shape, det_shape=det_shape, allow_resize=allow_resize)
     else:
         raise NotImplementedError
-    return np.array(det_windows).astype(np.int32)
+    return det_windows
 
 
     
@@ -304,17 +304,17 @@ def filter_detection_windows_naive(rois, crop_windows, full_windows, img_shape, 
         allow_resize (bool): Flag indicating whether resizing is allowed.
 
     Returns:
-        list: List of filtered crop windows where redundant windows are removed.
+        np.ndarray: Array of filtered crop windows where redundant windows are removed.
     """
-    final_crop_windows, final_full_windows = [],[]
-    for roi, crop_window, full_window in zip(rois, crop_windows, full_windows):
-        if any([is_bbox_inside_bbox(roi, final_full_window) for final_full_window in final_full_windows]):
-            continue
-            
-        final_crop_windows.append(crop_window)
-        final_full_windows.append(full_window)
+    final_indices = []
 
-    return final_crop_windows
+    for i, roi in enumerate(rois):
+        if any(is_bbox_inside_bbox(roi, full_window) for full_window in full_windows[final_indices]):
+            continue
+
+        final_indices.append(i)
+
+    return crop_windows[final_indices]
 
 
 
@@ -332,18 +332,21 @@ def filter_detection_windows_sorted(rois, crop_windows, full_windows, img_shape,
         allow_resize (bool): Flag indicating whether resizing is allowed.
 
     Returns:
-        list: List of filtered crop windows where redundant windows are removed, 
-              sorted by coverage of multiple ROIs.
+        np.ndarray: Array of filtered crop windows sorted by coverage of multiple ROIs.
     """
-    hits = {i: 0 for i in range(len(full_windows))}
+
+    hits = np.zeros(len(full_windows), dtype=int)
+
     for i, full_window in enumerate(full_windows):
-        hits[i]+=sum([is_bbox_inside_bbox(roi, full_window) for roi in rois])
+        hits[i] = np.sum(np.array([is_bbox_inside_bbox(roi, full_window) for roi in rois]))
 
-    # hits - how many rois inside each window, sort - det_windows with many rois first
-    hits = OrderedDict(sorted(hits.items(), key=lambda item: item[1], reverse=True))
-    rois = [rois[i] for i in hits.keys()]
-    crop_windows = [crop_windows[i] for i in hits.keys()]
-    full_windows = [full_windows[i] for i in hits.keys()]
+    # Get indices of sorted hits
+    sorted_indices = np.argsort(-hits)
 
-    final_crop_windows = filter_detection_windows_naive(rois, crop_windows, full_windows, img_shape, det_shape=det_shape, allow_resize=allow_resize)
-    return final_crop_windows 
+    # Sort ROIs, crop_windows, and full_windows based on hits
+    rois_sorted = rois[sorted_indices]
+    crop_windows_sorted = crop_windows[sorted_indices]
+    full_windows_sorted = full_windows[sorted_indices]
+
+    final_crop_windows = filter_detection_windows_naive(rois_sorted, crop_windows_sorted, full_windows_sorted, img_shape, det_shape, allow_resize)
+    return final_crop_windows
