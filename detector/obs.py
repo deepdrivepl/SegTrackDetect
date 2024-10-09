@@ -4,11 +4,40 @@ from .aggregation import box_iou
 
 
 def overlapping_box_suppression(windows, bboxes, th=0.6):
-    
+    """Perform overlapping box suppression to remove redundant bounding boxes.
+
+    This function removes redundant bounding boxes based on their Intersection over Union (IoU) 
+    with the given thresholds. It also normalizes the confidence scores and areas to make informed 
+    decisions about which boxes to keep.
+
+    Args:
+        windows (torch.Tensor): A tensor of shape [N, 4] representing the bounding boxes to filter, 
+            where each box is defined by (xmin, ymin, xmax, ymax).
+        bboxes (torch.Tensor): A tensor of shape [M, 5] representing the bounding boxes with confidence scores, 
+            where each box is defined by (xmin, ymin, xmax, ymax, confidence).
+        th (float): IoU threshold for determining whether to suppress a box. Default is 0.6.
+
+    Returns:
+        tuple:
+            - windows_filtered (torch.Tensor): The filtered windows tensor with shape [N', 4], 
+              where N' is the number of windows that are not suppressed.
+            - bboxes_filtered (torch.Tensor): The filtered bounding boxes tensor with shape [M', 5], 
+              where M' is the number of bounding boxes that are not suppressed.
+    """
+
     def normalize(input_tensor):
+        """Normalize a tensor to the range [0, 1].
+
+        Args:
+            input_tensor (torch.Tensor): The input tensor to normalize.
+
+        Returns:
+            torch.Tensor: The normalized tensor.
+        """
         input_tensor -= input_tensor.min(0, keepdim=True)[0]
         input_tensor /= input_tensor.max(0, keepdim=True)[0]
         return input_tensor
+
 
     unique_windows = torch.unique(windows, dim=0)
 

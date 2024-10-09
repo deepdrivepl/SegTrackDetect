@@ -28,32 +28,32 @@ from detector.aggregation import xyxy2xywh
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     # models
-    parser.add_argument('--roi_model', type=str, default="SDS_large")
-    parser.add_argument('--det_model', type=str, default="SDS")
-    parser.add_argument('--tracker', type=str, default="sort")
+    parser.add_argument('--roi_model', type=str, default="SDS_large", help='ROI Estimation model name. Must be defined in rois.estimator.configs.ESTIMATOR_MODELS')
+    parser.add_argument('--det_model', type=str, default="SDS", help='Detection model name. Must be defined in detector.configs.DETECTION_MODELS')
+    parser.add_argument('--tracker', type=str, default="sort", help='Tracker name. Must be defined in rois.predictor.configs.PREDICTOR_MODELS')
 
     # dataset
-    parser.add_argument('--ds', type=str, default="SeaDronesSee", choices=DATASETS.keys())
-    parser.add_argument('--split', type=str, default='test')
+    parser.add_argument('--ds', type=str, default="SeaDronesSee", choices=DATASETS.keys(), help='Dataset name. See available datasets in datasets module.')
+    parser.add_argument('--split', type=str, default='test', help='Dataset split to use.')
     parser.add_argument('--flist', type=str, help='If provided, infer images listed in flist.txt; if not, infer split images.')
     parser.add_argument('--name', type=str, help='Name for img list provided in flist.txt')
 
     # ROI
-    parser.add_argument('--bbox_type', type=str, default='sorted', choices=['all', 'naive', 'sorted']) # TODO one fixed method
-    parser.add_argument('--allow_resize', default=False, action='store_true')
+    parser.add_argument('--bbox_type', type=str, default='sorted', choices=['all', 'naive', 'sorted'], help='Type of detection bounding boxes filtering method.') # TODO one fixed method
+    parser.add_argument('--allow_resize', default=False, action='store_true', help='Allow resizing of detection sub-windows.')
     
     # general
-    parser.add_argument('--cpu', default=False, action='store_true')
-    parser.add_argument('--out_dir', type=str, default='detections')
-    parser.add_argument('--debug', default=False, action='store_true')
-    parser.add_argument('--vis_conf_th', type=float, default=0.3)
+    parser.add_argument('--cpu', default=False, action='store_true', help='Use CPU for inference.')
+    parser.add_argument('--out_dir', type=str, default='detections', help='Output directory for results.')
+    parser.add_argument('--debug', default=False, action='store_true', help='Enable debug mode for visualization.')
+    parser.add_argument('--vis_conf_th', type=float, default=0.3, help='Confidence threshold for visualization.')
         
     # OBS
-    parser.add_argument('--obs_iou_th', type=float, default=0.7)
+    parser.add_argument('--obs_iou_th', type=float, default=0.7, help='IoU threshold for Overlapping Box Suppression.')
     args = parser.parse_args()
     
 
-    # create out_dir and save args to json
+   # Create output directory and save arguments to JSON file
     os.makedirs(args.out_dir, exist_ok=False)
     with open(os.path.join(args.out_dir, "args.json"), 'w', encoding='utf-8') as f:
         info = {**vars(args)}
@@ -64,7 +64,7 @@ if __name__ == '__main__':
         os.makedirs(debug_dir, exist_ok=True)
     
 
-    # get dataset
+    # Get dataset
     flist = args.flist if args.flist is None else [x.rstrip() for x in open(args.flist)]
     ds = (DATASETS[args.ds])(split=args.split, flist=flist, name=args.name)
     seq2images = ds.get_seq2imgs() if ds.get_sequences() is not None else {1: ds.get_images()}
@@ -74,7 +74,7 @@ if __name__ == '__main__':
         exit(1) # TODO run second script (img only)
 
 
-    # get models
+    # Get models
     device = torch.device('cuda:0') if torch.cuda.device_count() > 0 and not args.cpu else 'cpu'
     detector = Detector(args.det_model, device)
     roi_extractor = ROIModule(
@@ -86,7 +86,7 @@ if __name__ == '__main__':
         allow_resize = args.allow_resize
     )
 
-    # save configs
+    # Save configurations
     detector_config = detector.get_config_dict()
     roi_extractor_config = roi_extractor.get_config_dict()
     with open(os.path.join(args.out_dir, "configs.json"), 'w', encoding='utf-8') as f:
@@ -94,7 +94,7 @@ if __name__ == '__main__':
         json.dump(config, f, ensure_ascii=False, indent=4)
 
     
-    # inference
+    # Inference
     annotations = []
     all_images = 0
     total_times = []

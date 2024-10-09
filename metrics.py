@@ -17,11 +17,11 @@ from pycocotools.cocoeval import COCOeval
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--dir', type=str, required=True)
-    parser.add_argument('--gt_path', type=str, default='data/SeaDronesSee/test_dev.json')
-    parser.add_argument('--th', type=float, default=0.01)
-    parser.add_argument('--csv', type=str, default='checks/metrics.csv')
-    parser.add_argument('--dc', default=False, action='store_true')
+    parser.add_argument('--dir', type=str, required=True, help="Directory containing detection result files.")
+    parser.add_argument('--gt_path', type=str, default='data/SeaDronesSee/test_dev.json', help="Path to ground truth JSON file.")
+    parser.add_argument('--th', type=float, default=0.01, help="Score threshold for filtering detections.")
+    parser.add_argument('--csv', type=str, default='checks/metrics.csv', help="Path to save evaluation metrics in CSV format. If file exists, new metrics will be appended to the file.")
+    parser.add_argument('--dc', default=False, action='store_true', help="Enable DroneCrowd mode with maxDets=500 and iouThr=0.5")
     args = parser.parse_args()
 
 

@@ -5,7 +5,21 @@ import torch
 from torchvision import transforms as T
 
 
+
 def yolo_transform(h,w):
+    """
+    Create a transformation pipeline for YOLO models.
+
+    Args:
+        h (int): Desired height for resizing the image.
+        w (int): Desired width for resizing the image.
+
+    Returns:
+        torchvision.transforms.Compose: A composition of transformations including:
+            - Conversion to tensor.
+            - Resizing to the specified height and width.
+            - Normalization with ImageNet statistics (mean and standard deviation).
+    """
     transform = T.Compose([
         T.ToTensor(),
         T.Resize((h, w), antialias=True),
@@ -15,7 +29,37 @@ def yolo_transform(h,w):
 
 
 def yolo_postprocess(output):
+    """
+    Post-process the YOLO model output.
+
+    Args:
+        output (torch.Tensor): The output tensor from the YOLO model.
+
+    Returns:
+        torch.Tensor: The post-processed output, which typically involves 
+                      selecting the first element of the model's output.
+    """
     return output[0]
+
+
+
+
+"""
+Dictionaries that contain the configurations for various YOLO detection models. 
+All weights are torch.jit.ScriptModules to avoid model dependencies.
+
+Keys:
+- weights: Path to the pre-trained model weights (torch.jit.ScriptModule).
+- in_size: Image dimensions for resizing during preprocessing.
+- conf_thresh: Non-Maximum Suppression minimum confidence for detection.
+- iou_thresh: Non-Maximum Suppression IoU threshold.
+- multi_label: Non-Maximum Suppression support for multi-label detection.
+- labels: Labels for autolabeling in Non-Maximum Suppression.
+- merge: Whether to merge overlapping bounding boxes using weighted mean in Non-Maximum Suppression.
+- agnostic: Class agnostic Non-Maximum Suppression.
+- transform: Preprocessing function to be applied to the input image.
+- postprocess: Post-processing function applied to the model outputs.
+"""
 
 
 ZeF20 = dict(

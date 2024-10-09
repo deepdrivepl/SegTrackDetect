@@ -14,7 +14,18 @@ from torchvision.ops import boxes
 
 
 
+
 def get_roi_bounding_boxes(binary_mask, original_shape, current_shape):
+    """Extracts bounding boxes around regions of interest (ROI) from a binary mask.
+
+    Args:
+        binary_mask (np.ndarray): Binary mask containing the ROI regions.
+        original_shape (tuple): Original image dimensions as (height, width).
+        current_shape (tuple): Current image dimensions as (height, width).
+
+    Returns:
+        np.ndarray: An array of bounding boxes, each represented by (xmin, ymin, xmax, ymax).
+    """
     orig_height, orig_width = original_shape
     curr_height, curr_width = current_shape
 
@@ -48,6 +59,19 @@ def get_roi_bounding_boxes(binary_mask, original_shape, current_shape):
 
 
 def get_sliding_windows_vect(roi_bboxes, img_shape, det_shape, overlap_px=20):
+    """Generates sliding window bounding boxes over the regions of interest.
+    Used for datasets that don't allow resize and ROIs larger than the input size 
+    of the detector.
+
+    Args:
+        roi_bboxes (np.ndarray): Array of bounding boxes representing the ROIs.
+        img_shape (tuple): Original image dimensions as (height, width).
+        det_shape (tuple): Detection window dimensions as (height, width).
+        overlap_px (int, optional): Overlap between sliding windows in pixels. Defaults to 20.
+
+    Returns:
+        tuple: Crop and full bounding boxes arrays for the sliding windows.
+    """
     h, w = det_shape
 
     # Extract xmin, ymin, xmax, ymax from the roi_bboxes array
@@ -91,6 +115,21 @@ def get_sliding_windows_vect(roi_bboxes, img_shape, det_shape, overlap_px=20):
 
 
 def needs_rotation(roi_bboxes, det_shape):
+    """
+    Determines whether the detection window needs to be rotated to match the orientation 
+    of each region of interest (ROI). If the orientation of the detection window differs 
+    from that of the ROI, rotation is required to ensure alignment with the model's expected 
+    detection window configuration.
+
+    Args:
+        roi_bboxes (np.ndarray): An array of bounding boxes representing the regions of interest (ROIs). 
+                                 Each bounding box is expected to have the format [xmin, ymin, xmax, ymax].
+        det_shape (tuple): A tuple representing the dimensions of the detector input size as (height, width).
+
+    Returns:
+        np.ndarray: A boolean array where each element indicates whether the corresponding detection window 
+                    requires rotation (True for rotation, False otherwise).
+    """
     h_window, w_window = det_shape
 
     # Calculate heights and widths for ROI bboxes
@@ -105,6 +144,18 @@ def needs_rotation(roi_bboxes, det_shape):
 
 
 def get_detection_window_vect_simplified(roi_bboxes, img_shape, det_shape, padding=20, allow_resize=True):
+    """Calculates detection windows (either sliding or non-sliding) for ROIs.
+
+    Args:
+        roi_bboxes (np.ndarray): Array of bounding boxes representing the ROIs.
+        img_shape (tuple): Original image dimensions as (height, width).
+        det_shape (tuple): Detection window dimensions as (height, width).
+        padding (int, optional): Padding added to ROIs. Defaults to 20.
+        allow_resize (bool, optional): If True, allows resizing of the detection window. Defaults to True.
+
+    Returns:
+        tuple: Crop and full bounding boxes arrays for the detection windows.
+    """
 
     # Apply rotation logic based on the input ROI and detection window
     rotation_mask = needs_rotation(roi_bboxes, det_shape)
@@ -185,7 +236,27 @@ def get_detection_window_vect_simplified(roi_bboxes, img_shape, det_shape, paddi
 
 
 def get_detection_windows(rois, img_shape, det_shape=(960, 960), bbox_type='naive', allow_resize=True):
+    """
+    Generates detection windows based on the given regions of interest (ROIs) and image dimensions. 
+    It allows for different methods of filtering the detection windows based on the specified 
+    bounding box type and resizing behavior.
 
+    Args:
+        rois (np.ndarray): Array of bounding boxes representing the regions of interest (ROIs), 
+                           with each box formatted as [xmin, ymin, xmax, ymax].
+        img_shape (tuple): Dimensions of the original image as (height, width).
+        det_shape (tuple, optional): Dimensions of the detection window (height, width). 
+                                     Default is (960, 960).
+        bbox_type (str, optional): Type of bounding box filtering to apply. Choices are:
+                                   'all' (use all windows), 'naive' (filter naively), 
+                                   and 'sorted' (filter based on sorted ROIs). 
+                                   Default is 'naive'.
+        allow_resize (bool, optional): Whether to allow resizing of windows if they don't match 
+                                       the desired shape. Default is True.
+
+    Returns:
+        np.ndarray: Array of detection windows in the format [xmin, ymin, xmax, ymax].
+    """
     crop_windows, full_windows = get_detection_window_vect_simplified(rois, img_shape, det_shape, allow_resize=allow_resize)
     if bbox_type == 'all':
         det_windows = crop_windows
@@ -200,6 +271,16 @@ def get_detection_windows(rois, img_shape, det_shape=(960, 960), bbox_type='naiv
 
     
 def is_bbox_inside_bbox(inner_bbox, outer_bbox):
+    """
+    Checks if a bounding box (inner_bbox) is fully contained within another bounding box (outer_bbox).
+
+    Args:
+        inner_bbox (np.ndarray): The inner bounding box in the format [xmin, ymin, xmax, ymax].
+        outer_bbox (np.ndarray): The outer bounding box in the format [xmin, ymin, xmax, ymax].
+
+    Returns:
+        bool: True if inner_bbox is completely inside outer_bbox, otherwise False.
+    """
     # Check if a bounding box (inner_bbox) is fully inside another bounding box (outer_bbox)
     xmin_inner, ymin_inner, xmax_inner, ymax_inner = inner_bbox
     xmin_outer, ymin_outer, xmax_outer, ymax_outer = outer_bbox
@@ -210,7 +291,21 @@ def is_bbox_inside_bbox(inner_bbox, outer_bbox):
 
 
 def filter_detection_windows_naive(rois, crop_windows, full_windows, img_shape, det_shape, allow_resize):
-    
+     """
+    Filters detection windows by naively removing any windows that are fully covered by 
+    previously processed windows.
+
+    Args:
+        rois (np.ndarray): Array of ROIs as bounding boxes [xmin, ymin, xmax, ymax].
+        crop_windows (np.ndarray): Array of cropped windows associated with ROIs.
+        full_windows (np.ndarray): Array of full windows associated with ROIs.
+        img_shape (tuple): Dimensions of the original image (height, width).
+        det_shape (tuple): Dimensions of the detection window (height, width).
+        allow_resize (bool): Flag indicating whether resizing is allowed.
+
+    Returns:
+        list: List of filtered crop windows where redundant windows are removed.
+    """
     final_crop_windows, final_full_windows = [],[]
     for roi, crop_window, full_window in zip(rois, crop_windows, full_windows):
         if any([is_bbox_inside_bbox(roi, final_full_window) for final_full_window in final_full_windows]):
@@ -224,6 +319,22 @@ def filter_detection_windows_naive(rois, crop_windows, full_windows, img_shape, 
 
 
 def filter_detection_windows_sorted(rois, crop_windows, full_windows, img_shape, det_shape, allow_resize):
+    """
+    Filters detection windows by sorting them based on how many ROIs are contained within 
+    each window. Windows that cover more ROIs are processed first.
+
+    Args:
+        rois (np.ndarray): Array of ROIs as bounding boxes [xmin, ymin, xmax, ymax].
+        crop_windows (np.ndarray): Array of cropped windows associated with ROIs.
+        full_windows (np.ndarray): Array of full windows associated with ROIs.
+        img_shape (tuple): Dimensions of the original image (height, width).
+        det_shape (tuple): Dimensions of the detection window (height, width).
+        allow_resize (bool): Flag indicating whether resizing is allowed.
+
+    Returns:
+        list: List of filtered crop windows where redundant windows are removed, 
+              sorted by coverage of multiple ROIs.
+    """
     hits = {i: 0 for i in range(len(full_windows))}
     for i, full_window in enumerate(full_windows):
         hits[i]+=sum([is_bbox_inside_bbox(roi, full_window) for roi in rois])

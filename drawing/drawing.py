@@ -10,6 +10,17 @@ from PIL import Image, ImageFont, ImageDraw
 
 
 def plot_mask(mask, image, color = [255, 144, 30], alpha=0.4):
+    """Overlay a mask on an image with a specified color and transparency.
+
+    Args:
+        mask (ndarray): A binary mask of shape (H, W) where non-zero values indicate the mask area.
+        image (ndarray): The original image to overlay the mask on, with shape (H, W, C).
+        color (list): A list of three integers representing the RGB color for the mask overlay.
+        alpha (float): The transparency factor for the mask overlay.
+
+    Returns:
+        ndarray: The masked image with the overlay applied.
+    """
     mask = cv2.merge((mask, mask, mask))
     color = np.full(mask.shape, np.array(color))
     
@@ -18,7 +29,21 @@ def plot_mask(mask, image, color = [255, 144, 30], alpha=0.4):
     return masked_image
 
 
+
 def plot_one_box(bbox, img, color, label=None, lw=2, draw_label=True):
+    """Draw a bounding box on an image.
+
+    Args:
+        bbox (list): A list of four integers representing the bounding box in (xmin, ymin, xmax, ymax) format.
+        img (ndarray): The image to draw the bounding box on.
+        color (tuple): A tuple of three integers representing the RGB color of the bounding box.
+        label (str): An optional label to draw above the bounding box.
+        lw (int): The line width of the bounding box.
+        draw_label (bool): Whether to draw the label above the bounding box.
+
+    Returns:
+        ndarray: The image with the bounding box drawn on it.
+    """
     
     xmin,ymin,xmax,ymax = list(map(int, bbox))
     img = cv2.rectangle(img, (xmin,ymin), (xmax,ymax), color, lw)
@@ -39,8 +64,23 @@ def plot_one_box(bbox, img, color, label=None, lw=2, draw_label=True):
     return img
 
 
+
 def draw_text(frame_numpy, text, x, y, color=(250,0,0), font='JetBrainsMono-ExtraBold.ttf', frac=0.01):
-    
+    """Draw text on a numpy array frame.
+
+    Args:
+        frame_numpy (ndarray): The image as a numpy array.
+        text (str): The text to be drawn.
+        x (int): The x-coordinate of the text position.
+        y (int): The y-coordinate of the text position.
+        color (tuple): A tuple of three integers representing the RGB color of the text.
+        font (str): The font file name to use for the text.
+        frac (float): A fraction of the frame size used to scale the font size.
+
+    Returns:
+        ndarray: The image with the text drawn on it.
+    """
+
     font_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'fonts', font)
     font = ImageFont.truetype(font_path, int(frac*np.sum(frame_numpy.shape[:2])))
 
@@ -51,8 +91,25 @@ def draw_text(frame_numpy, text, x, y, color=(250,0,0), font='JetBrainsMono-Extr
     return np.array(frame_PIL)
 
 
-def make_vis(frame, estim_mask, pred_mask, detection_windows, detections, classes, colors, vis_conf_th=0.1, show_label=True):
 
+def make_vis(frame, estim_mask, pred_mask, detection_windows, detections, classes, colors, vis_conf_th=0.1, show_label=True):
+    """Create a visualization by overlaying masks and bounding boxes on the frame.
+
+    Args:
+        frame (ndarray): The image frame to visualize.
+        estim_mask (ndarray): The estimated mask to overlay on the frame.
+        pred_mask (ndarray): The predicted mask to overlay on the frame.
+        detection_windows (list): A list of bounding boxes representing detection windows.
+        detections (ndarray): An array of detections with shape (N, 6) where each row contains
+                              (xmin, ymin, xmax, ymax, confidence, class_id).
+        classes (list): A list of class names corresponding to the class IDs.
+        colors (list): A list of colors for each class.
+        vis_conf_th (float): The confidence threshold for displaying detections.
+        show_label (bool): Whether to display labels on the bounding boxes.
+
+    Returns:
+        ndarray: The visualized image with masks and bounding boxes.
+    """
     if estim_mask is not None:
         frame = plot_mask(estim_mask, frame, alpha=0.6)
 

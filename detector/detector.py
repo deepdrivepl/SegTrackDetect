@@ -9,7 +9,30 @@ from .aggregation import non_max_suppression, rot90points, scale_coords
 
     
 class Detector:
+    """A class for loading a detection model and performing object detection.
 
+    Args:
+        model_name (str): Name of the detection model to be loaded.
+        device (str): Device to run the model on, default is 'cuda'.
+
+    Attributes:
+        config (dict): Configuration settings for the model.
+        net (torch.jit.ScriptModule): Loaded detection model.
+        input_size (tuple): Size of the input image for the model.
+        conf_thresh (float): Confidence threshold for detections.
+        iou_thresh (float): Intersection over Union threshold for NMS.
+        multi_label (bool): Indicates if multi-label detection is enabled.
+        labels (list): List of class labels.
+        merge (bool): Indicates if detections should be merged.
+        agnostic (bool): Indicates if class agnostic NMS is used.
+        preprocess (callable): Preprocessing function for input images.
+        postprocess (callable): Postprocessing function for model outputs.
+        device (str): Device being used ('cuda' or 'cpu').
+        inference_times (list): List to store inference times.
+        postprocess_times (list): List to store postprocessing times.
+        nms_times (list): List to store NMS times.
+        postprocess_to_orig_times (list): List to store time taken to translate detections back to original image.
+    """
 
     def __init__(self, model_name, device='cuda'):
         assert model_name in DETECTION_MODELS.keys(), f'{model_name} not in DETECTION_MODELS.keys()'
@@ -44,6 +67,14 @@ class Detector:
 
     @torch.no_grad()
     def get_detections(self, img_tensor):
+        """Perform detection on the input image tensor.
+
+        Args:
+            img_tensor (torch.Tensor): Input image tensor of shape [B, C, H, W].
+
+        Returns:
+            list: List of detections for each image in the batch.
+        """
         t1 = time.time()
         detections = self.net(img_tensor.to(self.device))
         self.inference_times.append(time.time()-t1)
@@ -66,12 +97,28 @@ class Detector:
 
         return detections
 
+
     def get_config_dict(self):
+        """Retrieve the configuration settings of the detector.
+
+        Returns:
+            dict: Dictionary containing the configuration settings, excluding transform and postprocess.
+        """
         return {'detector': {k:v for k,v in self.config.items() if k not in ['transform', 'postprocess']}}
 
 
     def postprocess_detections(self, detections, det_metadata):
+        """Postprocess the detections to translate them back to the original image dimensions.
 
+        Args:
+            detections (list): List of detections for each image.
+            det_metadata (dict): Metadata containing information about the original image dimensions.
+
+        Returns:
+            tuple:
+                - img_det (torch.Tensor): Tensor containing the processed detection results.
+                - img_win (torch.Tensor): Tensor containing the bounding box windows for detections.
+        """
         t1 = time.time()
 
         img_det_list = []
@@ -128,4 +175,12 @@ class Detector:
 
 
     def get_execution_times(self, num_images):
+        """Calculate average execution times for inference, postprocessing, NMS, and postprocessing to original.
+
+        Args:
+            num_images (int): Number of images processed.
+
+        Returns:
+            tuple: Average execution times for inference, postprocessing, NMS, and postprocessing to original.
+        """
         return sum(self.inference_times)/num_images, sum(self.postprocess_times)/num_images, sum(self.nms_times)/num_images, sum(self.postprocess_to_orig_times)/num_images
