@@ -291,7 +291,7 @@ def is_bbox_inside_bbox(inner_bbox, outer_bbox):
 
 
 def filter_detection_windows_naive(rois, crop_windows, full_windows, img_shape, det_shape, allow_resize):
-     """
+    """
     Filters detection windows by naively removing any windows that are fully covered by 
     previously processed windows.
 
