@@ -129,7 +129,7 @@ if __name__ == '__main__':
                 
 
                 t1 = time.time()
-                det_dataset =  WindowDetectionDataset(img.to(device), metadata['image_path'][0], ds, det_bboxes, detector.input_size)
+                det_dataset =  WindowDetectionDataset(img.to(device), ds, det_bboxes, detector.input_size)
                 img_det, det_metadata = det_dataset.get_batch()
                 times['det_get_batch'].append(time.time()-t1)
 
