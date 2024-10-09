@@ -8,7 +8,7 @@ from statistics import mean
 
 from .estimator import Estimator
 from .predictor import Predictor
-from .windows_proposals import find_bounding_boxes, get_detection_windows
+from .windows_proposals import get_roi_bounding_boxes, get_detection_windows
 
 
 class ROIModule:
@@ -30,7 +30,6 @@ class ROIModule:
     def get_fused_roi(self, frame_id, img_tensor, orig_shape, det_shape):
 
         self.estimated_mask = self.estimator.get_estimated_roi(img_tensor, orig_shape)[0,0,...] # shape [B,1,H,W]
-        # self.estimated_mask = self.estimated_mask.cpu().numpy()
         estimated_shape = self.estimated_mask.shape[-2:]
 
         if self.is_sequence:
@@ -41,19 +40,19 @@ class ROIModule:
 
 
         t1 = time.time()
-        fused_mask = (fused_mask.numpy() * 255).astype(np.uint8)
-        fused_bboxes = find_bounding_boxes(fused_mask, orig_shape, estimated_shape)
+        fused_mask = (fused_mask.numpy() * 255).astype(np.uint8) # convert to numpy for cv2.findContours()
+        fused_bboxes = get_roi_bounding_boxes(fused_mask, orig_shape, estimated_shape)
         self.rois_coorinates_times.append(time.time()-t1)
 
         t2 = time.time()
-        detection_windows = get_detection_windows( # TODO split into detection windows coordinates & filtering
+        detection_windows = get_detection_windows(
             fused_bboxes, 
-            orig_shape, 
-            det_size=det_shape, 
+            img_shape=orig_shape, 
+            det_shape=det_shape, 
             bbox_type=self.bbox_type,
             allow_resize=self.allow_resize,
         )
-                
+
         if len(detection_windows) > 0:
             indices = np.nonzero(((detection_windows[:,2]-detection_windows[:,0]) > 0) & ((detection_windows[:,3]-detection_windows[:,1]) > 0))
             detection_windows = detection_windows[indices[0], :]
