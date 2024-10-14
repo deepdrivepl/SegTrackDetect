@@ -16,15 +16,15 @@ from torchvision.ops import boxes
 
 
 def get_roi_bounding_boxes(binary_mask, original_shape, current_shape):
-    """Extracts bounding boxes around regions of interest (ROI) from a binary mask.
+    """Extracts ROI bounding boxes from a binary mask and rescales them to the original image shape.
 
     Args:
-        binary_mask (np.ndarray): Binary mask containing the ROI regions.
-        original_shape (tuple): Original image dimensions as (height, width).
-        current_shape (tuple): Current image dimensions as (height, width).
+        binary_mask (np.ndarray): Binary mask from which contours are extracted.
+        original_shape (tuple): Original image shape as (height, width).
+        current_shape (tuple): Current shape of the mask (height, width).
 
     Returns:
-        np.ndarray: An array of bounding boxes, each represented by (xmin, ymin, xmax, ymax).
+        np.ndarray: Array of bounding boxes with shape (N, 4) where each box is defined as (xmin, ymin, xmax, ymax).
     """
     orig_height, orig_width = original_shape
     curr_height, curr_width = current_shape
@@ -58,206 +58,153 @@ def get_roi_bounding_boxes(binary_mask, original_shape, current_shape):
 
 
 
-def get_sliding_windows_vect(roi_bboxes, img_shape, det_shape, overlap_px=20):
-    """Generates sliding window bounding boxes over the regions of interest.
-    Used for datasets that don't allow resize and ROIs larger than the input size 
-    of the detector.
+def rotate(bbox_roi, det_shape):
+    """Checks if an ROI needs to be rotated to fit the detection window.
 
     Args:
-        roi_bboxes (np.ndarray): Array of bounding boxes representing the ROIs.
-        img_shape (tuple): Original image dimensions as (height, width).
-        det_shape (tuple): Detection window dimensions as (height, width).
-        overlap_px (int, optional): Overlap between sliding windows in pixels. Defaults to 20.
+        bbox_roi (list): Bounding box for the ROI [xmin, ymin, xmax, ymax].
+        det_shape (tuple): Shape of the detection window (height, width).
 
     Returns:
-        tuple: Crop and full bounding boxes arrays for the sliding windows.
+        bool: True if rotation is needed, False otherwise.
     """
-    h, w = det_shape
+    def same_orientation(h_roi, w_roi, h_window, w_window):
+        if h_roi >= w_roi and h_window >= w_window:
+            return True
+        if h_roi < w_roi and h_window < w_window:
+            return True
+        return False
 
-    # Extract xmin, ymin, xmax, ymax from the roi_bboxes array
-    xmin, ymin, xmax, ymax = roi_bboxes[:, 0], roi_bboxes[:, 1], roi_bboxes[:, 2], roi_bboxes[:, 3]
-
-    # Calculate ROI heights and widths
-    roi_h = ymax - ymin
-    roi_w = xmax - xmin
-
-    # Calculate number of sliding windows in x and y directions
-    n_x = np.ceil(roi_w / (w - overlap_px)).astype(int)
-    n_y = np.ceil(roi_h / (h - overlap_px)).astype(int)
-
-    # Compute sliding window positions for all ROIs
-    XS = [np.arange(xmin[i], xmin[i] + (w - overlap_px) * n_x[i], w - overlap_px) for i in range(len(roi_bboxes))]
-    YS = [np.arange(ymin[i], ymin[i] + (h - overlap_px) * n_y[i], h - overlap_px) for i in range(len(roi_bboxes))]
-
-    # Calculate bounding boxes for each sliding window
-    bboxes_list = []
-    for i in range(len(roi_bboxes)):
-        X_mesh, Y_mesh = np.meshgrid(XS[i], YS[i])
-        _xmin = X_mesh.flatten().astype(int)
-        _ymin = Y_mesh.flatten().astype(int)
-        _xmax = np.minimum(_xmin + w, img_shape[1]).astype(int)
-        _ymax = np.minimum(_ymin + h, img_shape[0]).astype(int)
-        
-        bboxes = np.stack([_xmin, _ymin, _xmax, _ymax], axis=1)
-        bboxes_list.append(bboxes)
-
-    # Stack all bounding boxes together for all ROIs
-    crop_bboxes = np.vstack(bboxes_list)
-
-    # Calculate the full bounding box that covers the entire sliding window region for each ROI
-    full_bboxes = np.array([
-        [np.min(XS[i]), np.min(YS[i]), np.min([np.max(XS[i]) + w, img_shape[1]]), np.min([np.max(YS[i]) + h, img_shape[0]])]
-        for i in range(len(roi_bboxes))
-    ])
-
-    return crop_bboxes, full_bboxes
-
-
-
-def needs_rotation(roi_bboxes, det_shape):
-    """
-    Determines whether the detection window needs to be rotated to match the orientation 
-    of each region of interest (ROI). If the orientation of the detection window differs 
-    from that of the ROI, rotation is required to ensure alignment with the model's expected 
-    detection window configuration.
-
-    Args:
-        roi_bboxes (np.ndarray): An array of bounding boxes representing the regions of interest (ROIs). 
-                                 Each bounding box is expected to have the format [xmin, ymin, xmax, ymax].
-        det_shape (tuple): A tuple representing the dimensions of the detector input size as (height, width).
-
-    Returns:
-        np.ndarray: A boolean array where each element indicates whether the corresponding detection window 
-                    requires rotation (True for rotation, False otherwise).
-    """
     h_window, w_window = det_shape
-
-    # Calculate heights and widths for ROI bboxes
-    h_roi = roi_bboxes[:, 3] - roi_bboxes[:, 1]
-    w_roi = roi_bboxes[:, 2] - roi_bboxes[:, 0]
-
-    # Check same orientation
-    same_orientation = ((h_roi >= w_roi) & (h_window >= w_window)) | ((h_roi < w_roi) & (h_window < w_window))
-
-    return ~same_orientation
+    xmin, ymin, xmax, ymax = bbox_roi
+    h_roi, w_roi = ymax-ymin, xmax-xmin
+    
+    if same_orientation(h_roi, w_roi, h_window, w_window):
+        return False
+    return True
 
 
 
-def get_detection_window_vect_simplified(roi_bboxes, img_shape, det_shape, padding=20, allow_resize=True):
-    """Calculates detection windows (either sliding or non-sliding) for ROIs.
+def get_sliding_windows(roi_bbox, img_shape, det_shape, overlap_px = 20):
+    """Generates sliding windows within a given ROI.
 
     Args:
-        roi_bboxes (np.ndarray): Array of bounding boxes representing the ROIs.
-        img_shape (tuple): Original image dimensions as (height, width).
-        det_shape (tuple): Detection window dimensions as (height, width).
-        padding (int, optional): Padding added to ROIs. Defaults to 20.
-        allow_resize (bool, optional): If True, allows resizing of the detection window. Defaults to True.
+        roi_bbox (list): Bounding box for the ROI [xmin, ymin, xmax, ymax].
+        img_shape (tuple): Shape of the image (height, width).
+        det_shape (tuple): Shape of the detection window (height, width).
+        overlap_px (int, optional): Overlap between sliding windows. Defaults to 20.
 
     Returns:
-        tuple: Crop and full bounding boxes arrays for the detection windows.
+        tuple: List of bounding boxes for sliding windows and a full bounding box covering the entire ROI.
     """
+    h,w = det_shape
 
-    # Apply rotation logic based on the input ROI and detection window
-    rotation_mask = needs_rotation(roi_bboxes, det_shape)
-    heights = np.where(rotation_mask, det_shape[1], det_shape[0])  # Swap dimensions if rotation is needed
-    widths  = np.where(rotation_mask, det_shape[0], det_shape[1])
-    aspect_ratios = heights / widths
-    
-    # Calculate ROI heights, widths, and centers (xc, yc)
-    heights_roi = roi_bboxes[:, 3] - roi_bboxes[:, 1]
-    widths_roi = roi_bboxes[:, 2] - roi_bboxes[:, 0]
+    xmin, ymin, xmax, ymax = roi_bbox
+    roi_h, roi_w = ymax-ymin, xmax-xmin
 
+    n_x = math.ceil(roi_w / (w-overlap_px))
+    n_y = math.ceil(roi_h / (h-overlap_px))
 
-    # Find ROIs that require the sliding-window 
-    sliding_mask = ~allow_resize & ((heights_roi > heights) | (widths_roi > widths))
-    sliding_ids, non_sliding_ids = np.where(sliding_mask)[0], np.where(~sliding_mask)[0]
-    
-    
-    crop_bboxes = np.zeros((len(roi_bboxes), 4), dtype=np.int32)
-    full_bboxes = np.zeros((len(roi_bboxes), 4), dtype=np.int32)
+    XS = np.array([xmin+(w-overlap_px)*n for n in range(n_x)])
+    YS = np.array([ymin+(h-overlap_px)*n for n in range(n_y)])
 
-    # TODO 
-    if len(sliding_ids) > 0:
-        sliding_crop_bboxes, sliding_full_bboxes = get_sliding_windows_vect(roi_bboxes[sliding_ids, ...], img_shape, det_shape, overlap_px = 20)
-        print(sliding_crop_bboxes.shape, sliding_full_bboxes.shape)
-        # multiple crop bboxes per single roi
-        # crop_bboxes[sliding_ids] = sliding_crop_bboxes
-        # ValueError: shape mismatch: value array of shape (2,4) could not be broadcast to indexing result of shape (1,4)
-        # crop bboxes - more than rois
-        # full bboxes - same as rois
-        crop_bboxes[sliding_ids] = sliding_crop_bboxes
-        full_bboxes[sliding_ids] = sliding_full_bboxes
+    # max_xmax = XS[-1]+w
+    # max_ymax = YS[-1]+h
+
+    bboxes = []
+    for _xmin in XS:
+        for _ymin in YS:
+            _xmin,_ymin = [int(_) for _ in [_xmin,_ymin]]
+            _xmax,_ymax = min(_xmin+w, img_shape[1]), min(_ymin+h, img_shape[0])
+            # _xmax,_ymax = min(_xmin+w, xmax), min(_ymin+h, ymax)
+            bboxes.append([_xmin, _ymin, _xmax, _ymax])
+    full_bbox = [min([x[0] for x in bboxes]), min([x[1] for x in bboxes]), max([x[2] for x in bboxes]),  max([x[3] for x in bboxes])]
+    return bboxes, full_bbox
 
 
-    if len(non_sliding_ids) > 0:
-        non_sliding_rois = roi_bboxes[non_sliding_ids, ...]
 
-        xc = (non_sliding_rois[:, 0] + non_sliding_rois[:, 2]) // 2
-        yc = (non_sliding_rois[:, 1] + non_sliding_rois[:, 3]) // 2
+def get_detection_window(roi_bbox, img_shape, det_shape, padding=20, allow_resize=False):
+    """Generates a detection window for an ROI.
 
-        # Start with det_shape dimensions, apply padding, and maintain aspect ratio
-        heights = np.maximum(heights_roi + padding, heights)[non_sliding_ids]
-        widths = np.maximum(widths_roi + padding, widths)[non_sliding_ids]
-        heights_roi, widths_roi = heights_roi[non_sliding_ids], widths_roi[non_sliding_ids]
+    Args:
+        roi_bbox (list): Bounding box for the ROI [xmin, ymin, xmax, ymax].
+        img_shape (tuple): Shape of the image (height, width).
+        det_shape (tuple): Shape of the detection window (height, width).
+        padding (int, optional): Padding to apply around the ROI. Defaults to 20.
+        allow_resize (bool, optional): Whether to allow resizing of the ROI. Defaults to False.
 
-        # Adjust dimensions to keep aspect ratio consistent
-        widths  = np.where(heights / widths > aspect_ratios[non_sliding_ids], heights / aspect_ratios, widths)
-        heights = np.where(heights / widths < aspect_ratios[non_sliding_ids], widths * aspect_ratios, heights)
+    Returns:
+        tuple: Lists of crop bounding boxes and full bounding boxes.
+    """
+    rot = rotate(roi_bbox, det_shape)
+    if rot:
+        w,h = det_shape
+    else:
+        h,w = det_shape
+    ar = h/w 
+        
+    xmin, ymin, xmax, ymax = roi_bbox
+    h_roi, w_roi = ymax-ymin, xmax-xmin
 
-        # Calculate xmin, ymin, xmax, ymax for the crop bounding boxes
-        xmin = xc - widths // 2
-        ymin = yc - heights // 2
-        xmax = xmin + widths
-        ymax = ymin + heights
+    # sliding-window within ROI region
+    needs_sliding = (h_roi > h or w_roi > w) and not allow_resize
+    if needs_sliding:
+        crop_bboxes, full_bbox = get_sliding_windows(roi_bbox, img_shape, det_shape) # check if empty
+        return [crop_bboxes], [full_bbox]
 
-        # Ensure bounding boxes stay within image dimensions by translating them if needed
-        img_w, img_h = img_shape[1], img_shape[0]
+    # Apply padding if needed
+    h_roi = max(h_roi + padding, h)
+    w_roi = max(w_roi + padding, w)
 
-        # Correct boxes that exceed the right or bottom image boundary
-        xmax_exceeds = xmax > img_w
-        ymax_exceeds = ymax > img_h
-        xmin = np.where(xmax_exceeds, xmin - (xmax - img_w), xmin)
-        xmax = np.minimum(xmax, img_w)
-        ymin = np.where(ymax_exceeds, ymin - (ymax - img_h), ymin)
-        ymax = np.minimum(ymax, img_h)
+    # Adjust ROI size to maintain aspect ratio
+    if h_roi / w_roi != ar:
+        if h_roi / w_roi > ar:  # ROI is taller, adjust width
+            w_roi = h_roi / ar
+        else:  # ROI is wider, adjust height
+            h_roi = w_roi * ar
 
-        # Correct boxes that fall below the left or top image boundary
-        xmin = np.maximum(xmin, 0)
-        ymin = np.maximum(ymin, 0)
-        xmax = xmin + widths
-        ymax = ymin + heights
+    xc = (xmax+xmin)//2
+    yc = (ymin+ymax)//2
 
-        # Stack the final bounding box coordinates
-        crop_bboxes[non_sliding_ids] = np.stack([xmin, ymin, xmax, ymax], axis=1)
-        full_bboxes[non_sliding_ids] = crop_bboxes[non_sliding_ids]
+    xmin = max(xc - w_roi//2, 0)
+    ymin = max(yc - h_roi//2, 0)
 
-    return crop_bboxes, full_bboxes
+    xmax = xmin+w_roi
+    ymax = ymin+h_roi
+
+    if xmax > img_shape[1]:
+        dx = xmax-img_shape[1]
+        xmin = max(xmin - dx, 0)
+        xmax = max(xmax - dx, 0)
+    if ymax > img_shape[0]:
+        dy = ymax-img_shape[0]
+        ymin = max(ymin - dy, 0)
+        ymax = max(ymax - dy, 0)
+
+    crop_bbox = [xmin, ymin, xmax, ymax]
+    return [crop_bbox], [crop_bbox]
 
 
 
 def get_detection_windows(rois, img_shape, det_shape=(960, 960), bbox_type='naive', allow_resize=True):
-    """
-    Generates detection windows based on the given regions of interest (ROIs) and image dimensions. 
-    It allows for different methods of filtering the detection windows based on the specified 
-    bounding box type and resizing behavior.
+    """Processes a set of ROIs and generates detection windows.
 
     Args:
-        rois (np.ndarray): Array of bounding boxes representing the regions of interest (ROIs), 
-                           with each box formatted as [xmin, ymin, xmax, ymax].
-        img_shape (tuple): Dimensions of the original image as (height, width).
-        det_shape (tuple, optional): Dimensions of the detection window (height, width). 
-                                     Default is (960, 960).
-        bbox_type (str, optional): Type of bounding box filtering to apply. Choices are:
-                                   'all' (use all windows), 'naive' (filter naively), 
-                                   and 'sorted' (filter based on sorted ROIs). 
-                                   Default is 'naive'.
-        allow_resize (bool, optional): Whether to allow resizing of windows if they don't match 
-                                       the desired shape. Default is True.
+        rois (np.ndarray): Array of ROI bounding boxes (N, 4).
+        img_shape (tuple): Shape of the image (height, width).
+        det_shape (tuple, optional): Shape of the detection window (height, width). Defaults to (960, 960).
+        bbox_type (str, optional): Type of bounding box filtering ('naive', 'sorted', 'all'). Defaults to 'naive'.
+        allow_resize (bool, optional): Whether to allow resizing of detection windows. Defaults to True.
 
     Returns:
-        np.ndarray: Array of detection windows in the format [xmin, ymin, xmax, ymax].
+        np.ndarray: Array of detection windows.
     """
-    crop_windows, full_windows = get_detection_window_vect_simplified(rois, img_shape, det_shape, allow_resize=allow_resize)
+    crop_windows, full_windows = [], []
+    for roi in rois:
+        crop, full = get_detection_window(roi, img_shape, det_shape=det_shape, allow_resize=allow_resize)
+        crop_windows+=crop
+        full_windows+=full
+
     if bbox_type == 'all':
         det_windows = crop_windows
     elif bbox_type == 'naive':
@@ -266,87 +213,95 @@ def get_detection_windows(rois, img_shape, det_shape=(960, 960), bbox_type='naiv
         det_windows =  filter_detection_windows_sorted(rois, crop_windows, full_windows, img_shape, det_shape=det_shape, allow_resize=allow_resize)
     else:
         raise NotImplementedError
-    return det_windows
+    return np.array(det_windows).astype(np.int32)
 
 
     
 def is_bbox_inside_bbox(inner_bbox, outer_bbox):
-    """
-    Checks if a bounding box (inner_bbox) is fully contained within another bounding box (outer_bbox).
+    """Checks if an inner bounding box is fully inside an outer bounding box.
 
     Args:
-        inner_bbox (np.ndarray): The inner bounding box in the format [xmin, ymin, xmax, ymax].
-        outer_bbox (np.ndarray): The outer bounding box in the format [xmin, ymin, xmax, ymax].
+        inner_bbox (list or tuple): Bounding box in the format [xmin, ymin, xmax, ymax].
+        outer_bbox (list or tuple): Bounding box in the format [xmin, ymin, xmax, ymax].
 
     Returns:
-        bool: True if inner_bbox is completely inside outer_bbox, otherwise False.
+        bool: True if all four corners of the inner bounding box are within the outer bounding box, False otherwise.
     """
-    # Check if a bounding box (inner_bbox) is fully inside another bounding box (outer_bbox)
-    xmin_inner, ymin_inner, xmax_inner, ymax_inner = inner_bbox
-    xmin_outer, ymin_outer, xmax_outer, ymax_outer = outer_bbox
-    return (xmin_outer <= xmin_inner <= xmax_outer and
-            ymin_outer <= ymin_inner <= ymax_outer and
-            xmax_outer >= xmax_inner and ymax_outer >= ymax_inner)
+    def is_point_inside_bbox(point, bbox):
+        """Checks if a given point is inside a bounding box.
+
+        Args:
+            point (tuple): A point (x, y) to check.
+            bbox (list or tuple): Bounding box in the format [xmin, ymin, xmax, ymax].
+
+        Returns:
+            bool: True if the point is inside the bounding box, False otherwise.
+        """
+        xmin, ymin, xmax, ymax = bbox
+        x, y = point
+        if xmin<=x<=xmax and ymin<=y<=ymax:
+            return True
+
+    xmin,ymin,xmax,ymax = inner_bbox
+    p1, p2, p3, p4 = (xmin,ymin), (xmax,ymin), (xmax, ymax), (xmin, ymax)
+    return all([is_point_inside_bbox(point, outer_bbox) for point in [p1,p2,p3,p4]])
 
 
 
 def filter_detection_windows_naive(rois, crop_windows, full_windows, img_shape, det_shape, allow_resize):
-    """
-    Filters detection windows by naively removing any windows that are fully covered by 
-    previously processed windows.
+    """Filters detection windows by removing redundant windows where ROIs are already covered by previous windows.
 
     Args:
-        rois (np.ndarray): Array of ROIs as bounding boxes [xmin, ymin, xmax, ymax].
-        crop_windows (np.ndarray): Array of cropped windows associated with ROIs.
-        full_windows (np.ndarray): Array of full windows associated with ROIs.
-        img_shape (tuple): Dimensions of the original image (height, width).
-        det_shape (tuple): Dimensions of the detection window (height, width).
-        allow_resize (bool): Flag indicating whether resizing is allowed.
+        rois (list of list): List of ROIs, each represented as a bounding box [xmin, ymin, xmax, ymax].
+        crop_windows (list of list): List of crop windows corresponding to the ROIs.
+        full_windows (list of list): List of full windows corresponding to the ROIs.
+        img_shape (tuple): Shape of the input image (height, width).
+        det_shape (tuple): Shape of the detection window (height, width).
+        allow_resize (bool): Flag indicating whether resizing is allowed for sliding windows.
 
     Returns:
-        np.ndarray: Array of filtered crop windows where redundant windows are removed.
+        list of list: The final list of filtered crop windows, without redundant windows.
     """
-    final_indices = []
-
-    for i, roi in enumerate(rois):
-        if any(is_bbox_inside_bbox(roi, full_window) for full_window in full_windows[final_indices]):
+    final_crop_windows, final_full_windows = [],[]
+    for i in range(len(rois)):
+        if any([is_bbox_inside_bbox(rois[i], final_full_window) for final_full_window in final_full_windows]):
             continue
+            
+        if isinstance(crop_windows[i][0], list):
+            final_crop_windows+=crop_windows[i]
+        else:
+            final_crop_windows.append(crop_windows[i])
+        final_full_windows.append(full_windows[i])
 
-        final_indices.append(i)
-
-    return crop_windows[final_indices]
+    return final_crop_windows
 
 
 
 def filter_detection_windows_sorted(rois, crop_windows, full_windows, img_shape, det_shape, allow_resize):
-    """
-    Filters detection windows by sorting them based on how many ROIs are contained within 
-    each window. Windows that cover more ROIs are processed first.
+    """Filters detection windows by sorting based on the number of ROIs inside each window,
+    and then removes redundant windows.
 
     Args:
-        rois (np.ndarray): Array of ROIs as bounding boxes [xmin, ymin, xmax, ymax].
-        crop_windows (np.ndarray): Array of cropped windows associated with ROIs.
-        full_windows (np.ndarray): Array of full windows associated with ROIs.
-        img_shape (tuple): Dimensions of the original image (height, width).
-        det_shape (tuple): Dimensions of the detection window (height, width).
-        allow_resize (bool): Flag indicating whether resizing is allowed.
+        rois (list of list): List of ROIs, each represented as a bounding box [xmin, ymin, xmax, ymax].
+        crop_windows (list of list): List of crop windows corresponding to the ROIs.
+        full_windows (list of list): List of full windows corresponding to the ROIs.
+        img_shape (tuple): Shape of the input image (height, width).
+        det_shape (tuple): Shape of the detection window (height, width).
+        allow_resize (bool): Flag indicating whether resizing is allowed for sliding windows.
 
     Returns:
-        np.ndarray: Array of filtered crop windows sorted by coverage of multiple ROIs.
+        list of list: The final list of filtered crop windows, sorted by the number of ROIs covered.
     """
-
-    hits = np.zeros(len(full_windows), dtype=int)
-
+    hits = {i: 0 for i in range(len(full_windows))}
     for i, full_window in enumerate(full_windows):
-        hits[i] = np.sum(np.array([is_bbox_inside_bbox(roi, full_window) for roi in rois]))
+        hits[i]+=sum([is_bbox_inside_bbox(roi, full_window) for roi in rois])
 
-    # Get indices of sorted hits
-    sorted_indices = np.argsort(-hits)
+    # hits - how many rois inside each window, sort - det_windows with many rois first
+    hits = OrderedDict(sorted(hits.items(), key=lambda item: item[1], reverse=True))
+    rois = [rois[i] for i in hits.keys()]
+    crop_windows = [crop_windows[i] for i in hits.keys()]
+    full_windows = [full_windows[i] for i in hits.keys()]
 
-    # Sort ROIs, crop_windows, and full_windows based on hits
-    rois_sorted = rois[sorted_indices]
-    crop_windows_sorted = crop_windows[sorted_indices]
-    full_windows_sorted = full_windows[sorted_indices]
+    final_crop_windows = filter_detection_windows_naive(rois, crop_windows, full_windows, img_shape, det_shape=det_shape, allow_resize=allow_resize)
 
-    final_crop_windows = filter_detection_windows_naive(rois_sorted, crop_windows_sorted, full_windows_sorted, img_shape, det_shape, allow_resize)
-    return final_crop_windows
+    return final_crop_windows 
