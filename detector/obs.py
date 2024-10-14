@@ -39,6 +39,10 @@ def overlapping_box_suppression(windows, bboxes, th=0.6):
         return input_tensor
 
 
+    if len(bboxes) == 0:
+        return windows, bboxes
+
+
     unique_windows = torch.unique(windows, dim=0)
 
     # Calculate intersections
