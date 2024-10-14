@@ -16,8 +16,8 @@ def u2net_postprocess(output, ori_shape, sigmoid_included=True, thresh=0.5, dila
     applied to refine the binary mask.
 
     Args:
-        output (torch.Tensor): The output tensor from the U2Net model, 
-            expected to be of shape (1, C, H, W).
+        output (tuple of torch.Tensor): Tuple of output tensors from the U2Net model, 
+            each tuple element is expected to be of shape (1, C, H, W).
         ori_shape (tuple): The original shape of the input image as 
             (height, width).
         sigmoid_included (bool, optional): Indicates if the model output includes 
@@ -32,10 +32,9 @@ def u2net_postprocess(output, ori_shape, sigmoid_included=True, thresh=0.5, dila
 
     Returns:
         torch.Tensor: The postprocessed binary mask after applying 
-        thresholding and optional dilation.
+        thresholding and optional dilation. Shape (H, W)
     """
     output = output[0] 
-    output = torch.squeeze(output)
 
     if not sigmoid_included:
         output = torch.sigmoid(output)
@@ -46,7 +45,7 @@ def u2net_postprocess(output, ori_shape, sigmoid_included=True, thresh=0.5, dila
     if dilate:
         kernel = torch.ones((k_size, k_size), device=output.device)
         output = kornia.morphology.dilation(output, kernel)
-    return output
+    return output[0,0,...]
 
 
 
@@ -70,7 +69,7 @@ Keys:
 MTSD = dict(
     weights = "weights/u2netp_MTSD.pt",
     in_size = (576,576),
-    thresh = 0.5,
+    thresh = 0.05,
     transform = estimator_transform,
     sigmoid_included = True,
     postprocess = u2net_postprocess,

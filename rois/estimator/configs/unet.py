@@ -30,7 +30,7 @@ def unet_postprocess(output, ori_shape, sigmoid_included=False, thresh=None, dil
         iter (int, optional): The number of iterations for dilation. Default is 1.
 
     Returns:
-        torch.Tensor: The postprocessed binary mask.
+        torch.Tensor: The postprocessed binary mask. Shape (H, W)
     """
     # Apply sigmoid if not included in model
     if not sigmoid_included:
@@ -43,7 +43,7 @@ def unet_postprocess(output, ori_shape, sigmoid_included=False, thresh=None, dil
         kernel = torch.ones((k_size, k_size), device=output.device)
         output = kornia.morphology.dilation(output, kernel)
 
-    return output
+    return output[0,0,...]
 
 
 

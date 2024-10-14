@@ -39,7 +39,7 @@ class ROIModule:
         bbox_type='sorted', allow_resize=True):
 
         self.tracker_name = tracker_name
-        self.predictor = Predictor(tracker_name)
+        self.predictor = Predictor(tracker_name) if is_sequence else None
         self.estimator = Estimator(estimator_name, device=device)
         self.is_sequence = is_sequence
         self.bbox_type = bbox_type
@@ -63,15 +63,14 @@ class ROIModule:
         Returns:
             numpy.ndarray: Array of detection windows in the format (xmin, ymin, xmax, ymax).
         """
-        self.estimated_mask = self.estimator.get_estimated_roi(img_tensor, orig_shape)[0,0,...] # shape [B,1,H,W]
+        self.estimated_mask = self.estimator.get_estimated_roi(img_tensor, orig_shape) # shape [H,W]
         estimated_shape = self.estimated_mask.shape[-2:]
 
         if self.is_sequence:
             self.predicted_mask = self.predictor.get_predicted_roi(frame_id, orig_shape, estimated_shape)
-            fused_mask = torch.logical_or(self.estimated_mask.cpu(), self.predicted_mask).float()
         else:
-            fused_mask = self.estimated_mask
-
+            self.predicted_mask = torch.zeros(self.estimated_mask.shape, dtype=torch.float32)
+        fused_mask = torch.logical_or(self.estimated_mask.cpu(), self.predicted_mask).float()
 
         t1 = time.time()
         fused_mask = (fused_mask.numpy() * 255).astype(np.uint8) # convert to numpy for cv2.findContours()
@@ -125,7 +124,7 @@ class ROIModule:
             dict: A dictionary containing ROI estimator and predictor configurations.
         """
         estimator_config = {k:v for k,v in self.estimator.config.items() if k not in ['transform', 'postprocess']}
-        predictor_config = self.predictor.config
+        predictor_config = self.predictor.config if self.predictor else None
         return {'ROI_estimator': estimator_config, 'ROI_predictor': predictor_config}
 
 
