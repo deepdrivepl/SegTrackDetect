@@ -9,7 +9,7 @@ from PIL import Image, ImageFont, ImageDraw
 
 
 
-def plot_mask(mask, image, color = [255, 144, 30], alpha=0.4):
+def plot_mask(mask, image, color = [255, 144, 30], alpha=0.7):
     """Overlay a mask on an image with a specified color and transparency.
 
     Args:
@@ -111,10 +111,10 @@ def make_vis(frame, estim_mask, pred_mask, detection_windows, detections, classe
         ndarray: The visualized image with masks and bounding boxes.
     """
     if estim_mask is not None:
-        frame = plot_mask(estim_mask, frame, alpha=0.6)
+        frame = plot_mask(estim_mask, frame, color=[0, 128, 255], alpha=0.6)
 
     if pred_mask is not None:
-        frame = plot_mask(pred_mask, frame, color=[0, 128, 255], alpha=0.6)
+        frame = plot_mask(pred_mask, frame, alpha=0.6)
 
     for detection_window in detection_windows:
         frame = plot_one_box(list(map(int, detection_window)), frame, color=(0,0,0), label='WINDOW', draw_label=show_label) 
