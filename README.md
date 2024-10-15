@@ -6,6 +6,9 @@ SegTrackDetect is a modular framework designed for accurate small object detecti
 - [Object Detection Module](#object-detection)
 - [Detection Aggregation and Filtering](#detection-aggregation-and-filtering).
 
+To get started with the framework right away, head to the [Getting Started](#getting-started) section.
+
+
 
 # Architecture
 ## ROI Fusion Module
@@ -16,15 +19,28 @@ SegTrackDetect is a modular framework designed for accurate small object detecti
 
 
 
+# Getting Started
 
-# Depencencies
+## Depencencies
 We provide a Dockerfile that manages all the dependencies for you. To download all the trained models described in the model zoo and build a Docker image, simply run:
 ```console
 ./build_and_run.sh
 ```
 
-# Models
+## Examples
+All available models can be found in [Model ZOO](#model-zoo). Currently, we provide trained models for 4 detection tasks. 
 
+## Customization
+### Existing Models
+### New Models
+### New Datasets
+
+## Metrics
+We convert all datasets to coco format, and we provide a script for metrics computation.
+
+
+
+# Model ZOO
 ## Region of Interest Prediction
 
 |  Model | Objects of Interest |    Dataset   | Input size | Weights                                                                                    |
@@ -43,7 +59,7 @@ We provide a Dockerfile that manages all the dependencies for you. To download a
 | yolov7 tiny   |        people       |  DroneCrowd  |   320x512  | [here]() |
 | yolov7 tiny   |    people, boats    | SeaDronesSee |   320x512  | [here]() |
 
-## Metrics
+
 
 # Datasets
 ## Mapillary Traffic Sign Dataset
@@ -52,9 +68,9 @@ We provide a Dockerfile that manages all the dependencies for you. To download a
 ## SeaDronesSee
 
 
-# Examples
 
 # Licence
 
+
+
 # Acknowledgements
-### Header Name
