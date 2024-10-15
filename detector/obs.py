@@ -18,11 +18,8 @@ def overlapping_box_suppression(windows, bboxes, th=0.6):
         th (float): IoU threshold for determining whether to suppress a box. Default is 0.6.
 
     Returns:
-        tuple:
-            - windows_filtered (torch.Tensor): The filtered windows tensor with shape [N', 4], 
-              where N' is the number of windows that are not suppressed.
-            - bboxes_filtered (torch.Tensor): The filtered bounding boxes tensor with shape [M', 5], 
-              where M' is the number of bounding boxes that are not suppressed.
+        bboxes_filtered (torch.Tensor): The filtered bounding boxes tensor with shape [M', 5], 
+            where M' is the number of bounding boxes that are not suppressed.
     """
 
     def normalize(input_tensor):
@@ -40,7 +37,7 @@ def overlapping_box_suppression(windows, bboxes, th=0.6):
 
 
     if len(bboxes) == 0:
-        return windows, bboxes
+        return bboxes
 
 
     unique_windows = torch.unique(windows, dim=0)
@@ -68,7 +65,7 @@ def overlapping_box_suppression(windows, bboxes, th=0.6):
     to_del = torch.nonzero(ious > th)
     ious = ious[ious > th]
     if not ious.numel():
-        return windows, bboxes
+        return bboxes
 
 
     det_ind = to_del[:, 2].to(int)
@@ -103,8 +100,7 @@ def overlapping_box_suppression(windows, bboxes, th=0.6):
         to_del_ids.add(det_idx)
         del_mask[det_idx] = True
 
-    # Filter windows and bboxes
-    windows_filtered = windows[~del_mask]
+    # Filter bboxes
     bboxes_filtered = bboxes[~del_mask]
 
-    return windows_filtered, bboxes_filtered
+    return bboxes_filtered
