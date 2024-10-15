@@ -206,14 +206,23 @@ def get_detection_windows(rois, img_shape, det_shape=(960, 960), bbox_type='naiv
         full_windows+=full
 
     if bbox_type == 'all':
-        det_windows = crop_windows
+        detection_windows = crop_windows
     elif bbox_type == 'naive':
-        det_windows = filter_detection_windows_naive(rois, crop_windows, full_windows, img_shape, det_shape=det_shape, allow_resize=allow_resize)
+        detection_windows = filter_detection_windows_naive(rois, crop_windows, full_windows, img_shape, det_shape=det_shape, allow_resize=allow_resize)
     elif bbox_type == 'sorted':
-        det_windows =  filter_detection_windows_sorted(rois, crop_windows, full_windows, img_shape, det_shape=det_shape, allow_resize=allow_resize)
+        detection_windows =  filter_detection_windows_sorted(rois, crop_windows, full_windows, img_shape, det_shape=det_shape, allow_resize=allow_resize)
     else:
         raise NotImplementedError
-    return np.array(det_windows).astype(np.int32)
+
+    detection_windows = np.array(detection_windows).astype(np.int32)
+    if len(detection_windows) > 0:
+        detection_windows[:, 0] = np.clip(detection_windows[:, 0], 0, orig_shape[1])
+        detection_windows[:, 2] = np.clip(detection_windows[:, 2], 0, orig_shape[1])
+        detection_windows[:, 1] = np.clip(detection_windows[:, 1], 0, orig_shape[0])
+        detection_windows[:, 3] = np.clip(detection_windows[:, 3], 0, orig_shape[0])
+        indices = np.nonzero(((detection_windows[:,2]-detection_windows[:,0]) > 0) & ((detection_windows[:,3]-detection_windows[:,1]) > 0))
+        detection_windows = detection_windows[indices[0], :]
+    return detection_windows
 
 
     

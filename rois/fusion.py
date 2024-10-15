@@ -85,10 +85,7 @@ class ROIModule:
             bbox_type=self.bbox_type,
             allow_resize=self.allow_resize,
         )
-
-        if len(detection_windows) > 0:
-            indices = np.nonzero(((detection_windows[:,2]-detection_windows[:,0]) > 0) & ((detection_windows[:,3]-detection_windows[:,1]) > 0))
-            detection_windows = detection_windows[indices[0], :]
+        
         self.detection_windows_times.append(time.time()-t2)
         return detection_windows
 
