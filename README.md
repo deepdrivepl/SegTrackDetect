@@ -90,23 +90,31 @@ We convert all datasets to coco format, and we provide a script for metrics comp
 
 
 # Model ZOO
-## Region of Interest Prediction
 
-|  Model | Objects of Interest |    Dataset   | Input size | Weights                                                                                    |
-|:------:|:-------------------:|:------------:|:----------:|:------------------------------------------------------------------------------------------:|
-| u2netp |    traffic signs    |     MTSD     |   576x576  | [here](https://github.com/koseq/tinyROI-track/releases/download/v0.1/u2netp_MTSD.pt)       |
-|  unet  |         fish        |   ZebraFish  |   160x256  | [here](https://github.com/koseq/tinyROI-track/releases/download/v0.1/unetR18-ZebraFish.pt) |
-|  unet  |        people       |  DroneCrowd  |   192x320  | [here]() |
-|  unet  |    people, boats    | SeaDronesSee |   224x384  | [here]() |
+All models we use, are in TorchScrpt format. 
+
+## Region of Interest Estimation
+
+|  Model | Objects of Interest |    Dataset   | Model name | Input size | Weights                                                                                    |
+|:------:|:-------------------:|:------------:|:----------:|:----------:|:------------------------------------------------------------------------------------------:|
+| u2netp |    traffic signs    |     MTSD     |  MTSD      |   576x576  | [here](https://github.com/deepdrivepl/SegTrackDetect/releases/download/v0.1/u2netp_MTSD.pt)       |
+|  unet  |         fish        |   ZebraFish  |  ZeF20     | 160x256    | [here](https://github.com/deepdrivepl/SegTrackDetect/releases/download/v0.1/unetR18-ZebraFish.pt) |
+|  unet  |        people       |  DroneCrowd  |  DC_tiny   |  96x160    | [here](https://github.com/deepdrivepl/SegTrackDetect/releases/download/v0.1/DroneCrowd-001-R18-96x160-best-loss.pt) |
+|  unet  |        people       |  DroneCrowd  |  DC_small  |  192x320   | [here](https://github.com/deepdrivepl/SegTrackDetect/releases/download/v0.1/DroneCrowd-001-R18-192x320-best-loss.pt) |
+|  unet  |        people       |  DroneCrowd  |  DC_medium |  384x640   | [here](https://github.com/deepdrivepl/SegTrackDetect/releases/download/v0.1/DroneCrowd-001-R18-384x640-best-loss.pt) |
+|  unet  |    people, boats    | SeaDronesSee |  SDS_tiny  |   64x96    | [here](https://github.com/deepdrivepl/SegTrackDetect/releases/download/v0.1/SeaDronesSee-000-R18-64x96-best-loss.pt) |
+|  unet  |    people, boats    | SeaDronesSee | SDS_small  |   128x192  | [here](https://github.com/deepdrivepl/SegTrackDetect/releases/download/v0.1/SeaDronesSee-000-R18-128x192-best-loss.pt) |
+|  unet  |    people, boats    | SeaDronesSee | SDS_medium |   224x384  | [here](https://github.com/deepdrivepl/SegTrackDetect/releases/download/v0.1/SeaDronesSee-000-R18-224x384-best-loss.pt) |
+|  unet  |    people, boats    | SeaDronesSee | SDS_large  |   448x768  | [here](https://github.com/deepdrivepl/SegTrackDetect/releases/download/v0.1/SeaDronesSee-000-R18-448x768-best-loss.pt) |
 
 ## Object Detectors
 
-|  Model        | Objects of Interest |    Dataset   | Input size | Weights                                                                                    |
-|:------------: |:-------------------:|:------------:|:----------:|:------------------------------------------------------------------------------------------:|
-| yolov4        |    traffic signs    |     MTSD     |   960x960  | [here](https://github.com/koseq/tinyROI-track/releases/download/v0.1/yolov4_MTSD.pt)       |
-| yolov7 tiny   |         fish        |   ZebraFish  |   160x256  | [here](https://github.com/koseq/tinyROI-track/releases/download/v0.1/yolov7t-ZebraFish.pt) |
-| yolov7 tiny   |        people       |  DroneCrowd  |   320x512  | [here]() |
-| yolov7 tiny   |    people, boats    | SeaDronesSee |   320x512  | [here]() |
+|  Model        | Objects of Interest |    Dataset   | Model name | Input size | Weights                                                                                    |
+|:------------: |:-------------------:|:------------:|:----------:|:----------:|:------------------------------------------------------------------------------------------:|
+| yolov4        |    traffic signs    |     MTSD     | MTSD       |   960x960  | [here]([https://github.com/koseq/tinyROI-track/releases/download/v0.1/yolov4_MTSD.pt](https://github.com/deepdrivepl/SegTrackDetect/releases/download/v0.1/yolov4_MTSD.pt))       |
+| yolov7 tiny   |         fish        |   ZebraFish  |  ZeF20     |   160x256  | [here](https://github.com/deepdrivepl/SegTrackDetect/releases/download/v0.1/yolov7t-ZebraFish.pt) |
+| yolov7 tiny   |        people       |  DroneCrowd  |  SDS       |   320x512  | [here](https://github.com/deepdrivepl/SegTrackDetect/releases/download/v0.1/006-SeaDronesSee-yolov7-tiny-512x512-crops-only-multiple-scales-300ep-best.torchscript.pt) |
+| yolov7 tiny   |    people, boats    | SeaDronesSee |  DC        |   320x512  | [here](https://github.com/deepdrivepl/SegTrackDetect/releases/download/v0.1/004-DroneCrowd-yolov7-tiny-512x512-crops-only-multiple-scales-50ep-best.torchscript.pt) |
 
 
 
