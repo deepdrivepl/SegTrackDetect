@@ -69,7 +69,7 @@ Keys:
 MTSD = dict(
     weights = "weights/u2netp_MTSD.pt",
     in_size = (576,576),
-    thresh = 0.05,
+    thresh = 0.1,
     transform = estimator_transform,
     sigmoid_included = True,
     postprocess = u2net_postprocess,
