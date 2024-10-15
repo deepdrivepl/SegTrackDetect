@@ -15,10 +15,20 @@ To get started with the framework right away, head to the [Getting Started](#get
 # Getting Started
 
 ## Depencencies
-We provide a Dockerfile that manages all the dependencies for you. To download all the trained models described in the model zoo and build a Docker image, simply run:
+
+We provide a Dockerfile that handles all the dependencies for you. 
+Simply install the [Docker Engine](https://docs.docker.com/engine/install/) and, if you plan to run detection on a GPU, the [NVIDIA Container Toolkit](https://docs.docker.com/engine/install/).
+
+To download all the trained models described in [Model ZOO](#model-zoo) and build a Docker image, simply run:
 ```console
 ./build_and_run.sh
 ```
+We currently support four [datasets](#datasets), and we provide scripts that downloads the datasets and converts them into supported format.
+To download and convert all of them, run:
+```console
+./download_and_convert.sh
+```
+You can also download selected datasets by running corresponding scripts in the [`scripts`](scripts/) directory.
 
 ## Examples
 All available models can be found in [Model ZOO](#model-zoo). Currently, we provide trained models for 4 detection tasks. 
