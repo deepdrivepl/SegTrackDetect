@@ -216,10 +216,10 @@ def get_detection_windows(rois, img_shape, det_shape=(960, 960), bbox_type='naiv
 
     detection_windows = np.array(detection_windows).astype(np.int32)
     if len(detection_windows) > 0:
-        detection_windows[:, 0] = np.clip(detection_windows[:, 0], 0, orig_shape[1])
-        detection_windows[:, 2] = np.clip(detection_windows[:, 2], 0, orig_shape[1])
-        detection_windows[:, 1] = np.clip(detection_windows[:, 1], 0, orig_shape[0])
-        detection_windows[:, 3] = np.clip(detection_windows[:, 3], 0, orig_shape[0])
+        detection_windows[:, 0] = np.clip(detection_windows[:, 0], 0, img_shape[1])
+        detection_windows[:, 2] = np.clip(detection_windows[:, 2], 0, img_shape[1])
+        detection_windows[:, 1] = np.clip(detection_windows[:, 1], 0, img_shape[0])
+        detection_windows[:, 3] = np.clip(detection_windows[:, 3], 0, img_shape[0])
         indices = np.nonzero(((detection_windows[:,2]-detection_windows[:,0]) > 0) & ((detection_windows[:,3]-detection_windows[:,1]) > 0))
         detection_windows = detection_windows[indices[0], :]
     return detection_windows
