@@ -111,7 +111,7 @@ All models we use, are in TorchScrpt format.
 
 |  Model        | Objects of Interest |    Dataset   | Model name | Input size | Weights                                                                                    |
 |:------------: |:-------------------:|:------------:|:----------:|:----------:|:------------------------------------------------------------------------------------------:|
-| yolov4        |    traffic signs    |     MTSD     | MTSD       |   960x960  | [here]([https://github.com/koseq/tinyROI-track/releases/download/v0.1/yolov4_MTSD.pt](https://github.com/deepdrivepl/SegTrackDetect/releases/download/v0.1/yolov4_MTSD.pt))       |
+| yolov4        |    traffic signs    |     MTSD     | MTSD       |   960x960  | [here](https://github.com/deepdrivepl/SegTrackDetect/releases/download/v0.1/yolov4_MTSD.pt)      |
 | yolov7 tiny   |         fish        |   ZebraFish  |  ZeF20     |   160x256  | [here](https://github.com/deepdrivepl/SegTrackDetect/releases/download/v0.1/yolov7t-ZebraFish.pt) |
 | yolov7 tiny   |        people       |  DroneCrowd  |  SDS       |   320x512  | [here](https://github.com/deepdrivepl/SegTrackDetect/releases/download/v0.1/006-SeaDronesSee-yolov7-tiny-512x512-crops-only-multiple-scales-300ep-best.torchscript.pt) |
 | yolov7 tiny   |    people, boats    | SeaDronesSee |  DC        |   320x512  | [here](https://github.com/deepdrivepl/SegTrackDetect/releases/download/v0.1/004-DroneCrowd-yolov7-tiny-512x512-crops-only-multiple-scales-50ep-best.torchscript.pt) |
