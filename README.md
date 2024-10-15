@@ -1,4 +1,20 @@
-# tinyROI-track
+# SegTrackDetect
+
+SegTrackDetect is a modular framework designed for accurate small object detection using a combination of segmentation and tracking techniques. It performs detection at full resolution within selected Regions of Interest (ROIs), providing a highly efficient solution for scenarios where detecting tiny objects with precision is critical. The framework's modularity empowers users to easily customize key components, including the ROI Estimation Module, ROI Prediction Module, and Object Detector. See the following sections for more details on how the framework works and its key components:
+- [SegTrackDetect Architecural Design](#architecture)
+- [ROI Fusion Module](#place-2)
+- [Object Detection Module]
+
+# Architecture
+
+## ROI Fusion Module
+### ROI Prediction with Object Trackers
+### ROI Estimation with Segmentation
+## Object Deetection
+## Detection Aggregation and Filtering
+
+
+
 
 # Depencencies
 We provide a Dockerfile that manages all the dependencies for you. To download all the trained models described in the model zoo and build a Docker image, simply run:
@@ -34,8 +50,10 @@ We provide a Dockerfile that manages all the dependencies for you. To download a
 ## DroneCrowd
 ## SeaDronesSee
 
+
 # Examples
 
 # Licence
 
 # Acknowledgements
+### Header Name
