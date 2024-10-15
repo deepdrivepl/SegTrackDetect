@@ -126,26 +126,30 @@ if __name__ == '__main__':
                     det_shape = detector.input_size,  
                 )
                 times['roi'].append(time.time()-start_batch)
-                
 
-                t1 = time.time()
-                det_dataset =  WindowDetectionDataset(img.to(device), ds, det_bboxes, detector.input_size)
-                img_det, det_metadata = det_dataset.get_batch()
-                times['det_get_batch'].append(time.time()-t1)
+                if len(det_bboxes) > 0:
+
+                    t1 = time.time()
+                    det_dataset =  WindowDetectionDataset(img.to(device), ds, det_bboxes, detector.input_size)
+                    img_det, det_metadata = det_dataset.get_batch()
+                    times['det_get_batch'].append(time.time()-t1)
 
 
-                t1 = time.time()
-                detections = detector.get_detections(img_det)
-                times['det_infer'].append(time.time()-t1)
+                    t1 = time.time()
+                    detections = detector.get_detections(img_det)
+                    times['det_infer'].append(time.time()-t1)
 
-                t1 = time.time()
-                img_det, img_win = detector.postprocess_detections(detections, det_metadata)
-                times['det_postproc'].append(time.time()-t1)
+                    t1 = time.time()
+                    img_det, img_win = detector.postprocess_detections(detections, det_metadata)
+                    times['det_postproc'].append(time.time()-t1)
 
-                t1 = time.time()
-                # Overlapping Box Suppression
-                img_win, img_det = overlapping_box_suppression(img_win, img_det, th=args.obs_iou_th)
-                times['obs'].append(time.time()-t1)
+                    t1 = time.time()
+                    # Overlapping Box Suppression
+                    img_det = overlapping_box_suppression(img_win, img_det, th=args.obs_iou_th)
+                    times['obs'].append(time.time()-t1)
+
+                else:
+                    img_det = torch.empty((0,6))
 
                 t1 = time.time()
                 roi_extractor.predictor.update_tracker_state(img_det.detach().cpu().numpy()[:, :-1])
@@ -153,7 +157,7 @@ if __name__ == '__main__':
                 if args.debug:
                     frame = cv2.imread(metadata['image_path'][0])
                     estim_mask, pred_mask = roi_extractor.get_masks(frame.shape[:2])
-                    frame = make_vis(frame, estim_mask, pred_mask, img_win, img_det, ds.classes, ds.colors, args.vis_conf_th)
+                    frame = make_vis(frame, estim_mask, pred_mask, det_bboxes, img_det, ds.classes, ds.colors, args.vis_conf_th)
                     out_fname = f"{debug_dir}/{seq_name}/{os.path.basename(metadata['image_path'][0])}"
                     os.makedirs(os.path.dirname(out_fname), exist_ok=True)
                     cv2.imwrite(out_fname, frame)
