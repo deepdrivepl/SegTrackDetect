@@ -20,17 +20,54 @@ We provide a Dockerfile that handles all the dependencies for you.
 Simply install the [Docker Engine](https://docs.docker.com/engine/install/) and, if you plan to run detection on a GPU, the [NVIDIA Container Toolkit](https://docs.docker.com/engine/install/).
 
 To download all the trained models described in [Model ZOO](#model-zoo) and build a Docker image, simply run:
-```console
+```bash
 ./build_and_run.sh
 ```
 We currently support four [datasets](#datasets), and we provide scripts that downloads the datasets and converts them into supported format.
 To download and convert all of them, run:
-```console
+```bash
 ./download_and_convert.sh
 ```
 You can also download selected datasets by running corresponding scripts in the [`scripts`](scripts/) directory.
 
 ## Examples
+
+SegTrackDetect framework supports tiny object detection on consecutive frames (video detection), as well as detection on independent windows.
+
+To run detection on video data using one of the supported datasets, e.g. `SeaDronesSee`:
+```bash
+python inference_vid.py \
+--roi_model 'SDS_large' --det_model 'SDS' --tracker 'sort' \
+--ds 'SeaDronesSee' --split 'val' \
+--bbox_type 'sorted' --allow_resize --obs_iou_th 0.1 \
+--out_dir 'results/SDS/val' --debug
+```
+To run the detection on independent windows, e.g. `MTSD`, use:
+```bash
+python inference_img.py \
+--roi_model 'MTSD' --det_model 'MTSD' \
+--ds 'MTSD' --split 'val' \
+--bbox_type 'sorted' --allow_resize --obs_iou_th 0.7 \
+--out_dir 'results/MTSD/val' --debug
+```
+| Argument          | Type      | Description                                                                                                                                 |
+|:-------------------:|-----------|---------------------------------------------------------------------------------------------------------------------------------------------|
+| `--roi_model`     | `str`     | Specifies the ROI model to use (e.g., `SDS_large`). All available ROI models are defined [here](rois/estimator/configs/__init__.py)         |
+| `--det_model`     | `str`     | Specifies the detection model to use (e.g., `SDS`). All available detectors are defined [here](detector/configs/__init__.py)                |
+| `--tracker`       | `str`     | Specifies the tracker to use (e.g., `sort`). All available trackers are defoned [here](rois/predictor/configs/__init__.py)                  |
+| `--ds`            | `str`     | Dataset to use for inference (e.g., `SeaDronesSee`). Available [datasets](datasets/__init__.py)                                             |
+| `--split`         | `str`     | Data split to use (e.g., `val` for validation). If present, the script will save the detections using the coco image ids used in `val.json` |
+| `--flist`         | `str`     | An alternative version of providing an image list, path to the file with absolute paths to images.                                          |
+| `--name`          | `str`     | A name for provided `flist`, coco annotations `name.json` will be generated and saved in the dataset root directory                         |
+| `--bbox_type`     | `str`     | Type of the detection window filtering algorithm (`all` - no filtering, `naive`, `sorted`).                                                 |
+| `--allow_resize`  | `flag`    | Enables resizing of cropped detection windows. Siling window within large ROIs will be used otherwise.                                      |
+| `--obs_iou_th`    | `float`   | Sets the IoU threshold for Overlapping Box Suppresion (default is 0.7).                                                                     |
+| `--cpu`           | `flag`    | Use `cpu` for computations, if not set use `cuda`                                                                                           |
+| `--out_dir`       | `str`     | Directory to save output results (e.g., `results/SDS/val`).                                                                                 |
+| `--debug`         | `flag`    | Enables saving visualisation in `out_dir`                                                                                                   |
+| `--vis_conf_th`   | `float`   | Confidence threshold for the detections in visualisation, default 0.3.                                                                      |
+
+
 All available models can be found in [Model ZOO](#model-zoo). Currently, we provide trained models for 4 detection tasks. 
 
 ## Customization
