@@ -1,10 +1,10 @@
-OUT_DIR="/tinyROI/data/MTSD"
+OUT_DIR="data/MTSD"
 
 mkdir -p $OUT_DIR
 
 echo "Downloading the old MTSD annotation version"
 echo ""
-wget "https://github.com/koseq/tinyROI-track/releases/download/v0.1/annotations_v1.zip" -O $OUT_DIR/annotations_v1.zip
+wget "https://github.com/deepdrivepl/SegTrackDetect/releases/download/v0.1/annotations_v1.zip" -O $OUT_DIR/annotations_v1.zip
 unzip $OUT_DIR/annotations_v1.zip -d $OUT_DIR
 rm $OUT_DIR/annotations_v1.zip
 

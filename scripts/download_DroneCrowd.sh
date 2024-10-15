@@ -1,4 +1,4 @@
-OUT_DIR="/tinyROI/data/DroneCrowd"
+OUT_DIR="data/DroneCrowd"
 
 mkdir -p $OUT_DIR
 
