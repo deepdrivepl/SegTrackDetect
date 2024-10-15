@@ -1,5 +1,7 @@
 # SegTrackDetect
 
+![architecture](images/SegTrackDetect.png)
+
 SegTrackDetect is a modular framework designed for accurate small object detection using a combination of segmentation and tracking techniques. It performs detection within selected Regions of Interest (ROIs), providing a highly efficient solution for scenarios where detecting tiny objects with precision is critical. The framework's modularity empowers users to easily customize key components, including the ROI Estimation Module, ROI Prediction Module, and Object Detector. It also features our Overlapping Box Suppression Algorithm that efficiently combines detected objects from multiple sub-windows, filtering them to overcome the limitations of window-based detection methods. See the following sections for more details on the framework, its components, and customization options:
 - [SegTrackDetect Architecural Design](#architecture)
 - [ROI Fusion Module](#roi-fusion-module)
@@ -7,15 +9,6 @@ SegTrackDetect is a modular framework designed for accurate small object detecti
 - [Detection Aggregation and Filtering](#detection-aggregation-and-filtering).
 
 To get started with the framework right away, head to the [Getting Started](#getting-started) section.
-
-
-
-# Architecture
-## ROI Fusion Module
-### ROI Prediction with Object Trackers
-### ROI Estimation with Segmentation
-## Object Detection
-## Detection Aggregation and Filtering
 
 
 
@@ -37,6 +30,15 @@ All available models can be found in [Model ZOO](#model-zoo). Currently, we prov
 
 ## Metrics
 We convert all datasets to coco format, and we provide a script for metrics computation.
+
+
+
+# Architecture
+## ROI Fusion Module
+### ROI Prediction with Object Trackers
+### ROI Estimation with Segmentation
+## Object Detection
+## Detection Aggregation and Filtering
 
 
 
