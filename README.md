@@ -83,7 +83,8 @@ We convert all datasets to coco format, and we provide a script for metrics comp
 
 
 # Architecture
-![architecture](images/architecture.png)
+![architecture](images/SegTrackDetect.png)
+
 ## ROI Fusion Module
 ### ROI Prediction with Object Trackers
 ### ROI Estimation with Segmentation
