@@ -1,8 +1,10 @@
 # SegTrackDetect
 
-![architecture](images/SegTrackDetect.png)
+SegTrackDetect is a modular framework designed for accurate small object detection using a combination of segmentation and tracking techniques. It performs detection within selected Regions of Interest (ROIs), providing a highly efficient solution for scenarios where detecting tiny objects with precision is critical. The framework's modularity empowers users to easily customize key components, including the ROI Estimation Module, ROI Prediction Module, and Object Detector. It also features our Overlapping Box Suppression Algorithm that efficiently combines detected objects from multiple sub-windows, filtering them to overcome the limitations of window-based detection methods. 
 
-SegTrackDetect is a modular framework designed for accurate small object detection using a combination of segmentation and tracking techniques. It performs detection within selected Regions of Interest (ROIs), providing a highly efficient solution for scenarios where detecting tiny objects with precision is critical. The framework's modularity empowers users to easily customize key components, including the ROI Estimation Module, ROI Prediction Module, and Object Detector. It also features our Overlapping Box Suppression Algorithm that efficiently combines detected objects from multiple sub-windows, filtering them to overcome the limitations of window-based detection methods. See the following sections for more details on the framework, its components, and customization options:
+![example](images/MTSD-example.png)
+
+See the following sections for more details on the framework, its components, and customization options:
 - [SegTrackDetect Architecural Design](#architecture)
 - [ROI Fusion Module](#roi-fusion-module)
 - [Object Detection Module](#object-detection)
@@ -81,6 +83,7 @@ We convert all datasets to coco format, and we provide a script for metrics comp
 
 
 # Architecture
+![architecture](images/architecture.png)
 ## ROI Fusion Module
 ### ROI Prediction with Object Trackers
 ### ROI Estimation with Segmentation
