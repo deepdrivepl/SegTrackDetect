@@ -256,12 +256,13 @@ In the SegTrackDetect framework, we utilize a range of pre-trained models for bo
 
 
 # Datasets
-## Mapillary Traffic Sign Dataset
-## ZebraFish
-## DroneCrowd
-## SeaDronesSee
+The SegTrackDetect framework supports a variety of datasets tailored for different object detection tasks. Each dataset is accompanied by specific models designed to optimize performance in their respective domains. Below is a list of the supported datasets, along with suitable ROI and detection models that can be utilized for inference. These datasets encompass a range of scenarios, from traffic sign recognition to maritime object detection, enabling comprehensive evaluation and testing of the framework's capabilities.
 
-
+Supported Datasets:
+- Mapillary Traffic Sign Dataset 🚥
+- ZebraFish 🐟
+- DroneCrowd 🚁
+- SeaDronesSee 🌊
 
 # Licence
 
