@@ -129,7 +129,7 @@ To assess the performance of the SegTrackDetect framework, we convert all datase
 
 To run the metrics computation script, use the following command:
 ```bash
-python compute_metrics.py --dir <directory_with_detections> --gt_path <path_to_ground_truth_json> --th <score_threshold> --csv <path_to_save_metrics>
+python metrics.py --dir <directory_with_detections> --gt_path <path_to_ground_truth_json> --th <score_threshold> --csv <path_to_save_metrics>
 ```
 This will generate the evaluation metrics and save them in the specified CSV file for further analysis.
 
