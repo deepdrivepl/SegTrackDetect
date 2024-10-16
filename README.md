@@ -137,3 +137,19 @@ All trained models are distributed under licenses that comply with the terms of 
 
 
 # Acknowledgements
+
+This project makes use of the following datasets, model architectures, and object tracking methods:
+
+Datasets:
+- :stop_sign: [Mapillary Traffic Sign Dataset](https://www.mapillary.com/dataset/trafficsign) for traffic sign detection examples
+- :fish: [ZebraFish 3D](https://motchallenge.net/data/3D-ZeF20/) for fish detection examples
+- :boat: [SeaDronesSee](https://seadronessee.cs.uni-tuebingen.de/) for maritime object detection from drones
+- :busts_in_silhouette: [DroneCrowd](https://github.com/VisDrone/DroneCrowd) for crowd detection in drone videos
+
+Models:
+- :red_square: [UNet](https://arxiv.org/abs/1505.04597) and :purple_square: [U<sup>2</sup>Net](https://arxiv.org/abs/2005.09007) in ROI Estimation Module
+- :yellow_square: [SORT](https://arxiv.org/abs/1602.00763) tracker in ROI Prediction Module
+- :blue_square: [YOLOv4](https://arxiv.org/abs/2004.10934) and :brown_square: [YOLOv7](https://arxiv.org/abs/2207.02696) in Object Detection Module
+
+---
+This research was supported by the Ministry of Education and Science under the "Doktorat Wdrożeniowy" program.
