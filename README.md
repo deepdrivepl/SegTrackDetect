@@ -17,26 +17,26 @@ To get started with the framework right away, head to the [Getting Started](#get
 # Getting Started
 
 ## Depencencies
+To simplify the setup process, we provide a Dockerfile that manages all necessary dependencies for you. Follow these steps to get started:
+1. **Install Docker:** Begin by installing the [Docker Engine](https://docs.docker.com/engine/install/)
+2. **Install NVIDIA Container Toolkit:** If you plan to run detection on a GPU, make sure to install the [NVIDIA Container Toolkit](https://docs.docker.com/engine/install/)
 
-We provide a Dockerfile that handles all the dependencies for you. 
-Simply install the [Docker Engine](https://docs.docker.com/engine/install/) and, if you plan to run detection on a GPU, the [NVIDIA Container Toolkit](https://docs.docker.com/engine/install/).
-
-To download all the trained models described in [Model ZOO](#model-zoo) and build a Docker image, simply run:
+Once you have Docker set up, you can download all the trained models listed in the [Model ZOO](#model-zoo) and build the Docker image by running the following command:
 ```bash
 ./build_and_run.sh
 ```
-We currently support four [datasets](#datasets), and we provide scripts that downloads the datasets and converts them into supported format.
-To download and convert all of them, run:
+
+We currently support four [datasets](#datasets), and we provide scripts to download and convert them into a compatible format. To download and convert all datasets at once, execute:
 ```bash
 ./download_and_convert.sh
 ```
-You can also download selected datasets by running corresponding scripts in the [`scripts`](scripts/) directory.
+If you prefer to download specific datasets, you can run the corresponding scripts located in the [`scripts`](scripts/) directory.
+
 
 ## Examples
+SegTrackDetect framework supports tiny object detection across consecutive frames (video detection) as well as on independent windows.
 
-SegTrackDetect framework supports tiny object detection on consecutive frames (video detection), as well as detection on independent windows.
-
-To run detection on video data using one of the supported datasets, e.g. `SeaDronesSee`:
+To perform detection on video data using one of the supported datasets, such as `SeaDronesSee`, you can use the following command:
 ```bash
 python inference_vid.py \
 --roi_model 'SDS_large' --det_model 'SDS' --tracker 'sort' \
@@ -44,7 +44,8 @@ python inference_vid.py \
 --bbox_type 'sorted' --allow_resize --obs_iou_th 0.1 \
 --out_dir 'results/SDS/val' --debug
 ```
-To run the detection on independent windows, e.g. `MTSD`, use:
+
+For detecting objects in independent windows, for example with the `MTSD` dataset, run:
 ```bash
 python inference_img.py \
 --roi_model 'MTSD' --det_model 'MTSD' \
@@ -52,6 +53,9 @@ python inference_img.py \
 --bbox_type 'sorted' --allow_resize --obs_iou_th 0.7 \
 --out_dir 'results/MTSD/val' --debug
 ```
+
+The following table outlines the command-line arguments that can be used when running the inference scripts. These arguments allow you to customize the behavior of the detection process by specifying models, datasets, and various configurations.
+
 | Argument          | Type      | Description                                                                                                                                 |
 |:-------------------:|-----------|---------------------------------------------------------------------------------------------------------------------------------------------|
 | `--roi_model`     | `str`     | Specifies the ROI model to use (e.g., `SDS_large`). All available ROI models are defined [here](rois/estimator/configs/__init__.py)         |
@@ -74,12 +78,60 @@ All available models can be found in [Model ZOO](#model-zoo). Currently, we prov
 
 ## Customization
 ### Existing Models
+You can easily customize the behavior of existing models in the SegTrackDetect framework. This includes modifying post-processing functions or adjusting parameters such as thresholds and dilations. To do this, locate the configuration dictionaries for the models you wish to customize in the respective configuration directories. For instance, you can find the configurations for ROI estimation models in the [estimator configs](rois/estimator/configs/) directory, for ROI prediction models in the [predictor configs](rois/predictor/configs/), and for object detectors in the [detectors config](https://github.com/deepdrivepl/SegTrackDetect/blob/main/detector/configs/yolo.py) directory.
+
+
 ### New Models
+To add new models to the framework, you will need to create a configuration dictionary for your model. Place this configuration in the appropriate directory (e.g., [estimator configs](rois/estimator/configs/) for ROI estimation models, [predictor configs](rois/predictor/configs/) for ROI predictors or [detectors configs](detector/configs) for object detectors). After defining your model and its configuration, register the new model in the relevant ESTIMATOR_MODELS, PREDICTOR_MODELS or DETECTION_MODELS in the __init__.py file to enable its use in main scripts.
+
+By following these steps, you can seamlessly integrate custom models into the SegTrackDetect framework, enhancing its capabilities to meet your specific needs.
+
+For more details on integrating new trackers into ROI Prediction module see [this](#roi-prediction-with-object-trackers) section.
+
+
 ### New Datasets
+You can use any dataset that adheres to the specified directory structure for video data. The required structure for organizing videos in the SegTrackDetect framework is as follows:
+```bash
+SegTrackDetect/data/YourVideoDataset/
+├── images
+│   ├── seq1               # Sequence 1 with A images
+│   ├── seq2               # Sequence 2 with B images
+│   ├── seq3               # Sequence 3 with C images
+│   ├── seq4               # Sequence 4 with D images
+│   └── ...                # Additional sequences as needed
+├── split_x.json           # Annotations in COCO format
+├── split_y.json           # Annotations in COCO format
+└── split_z.json           # Annotations in COCO format
+```
+Each sequence (e.g., `seq1`, `seq2`, etc.) should contain its respective images. 
+
+
+You can use any dataset that follows the specified directory structure for image data. The required structure for organizing images in the SegTrackDetect framework is as follows:
+```bash
+SegTrackDetect/data/YourImageDataset/
+├── images                # All images should be placed directly in this directory
+│   ├── image1.jpg       # Image file 1
+│   ├── image2.jpg       # Image file 2
+│   ├── image3.png       # Image file 3
+│   └── ...              # Additional image files as needed
+├── split_x.json         # Annotations in COCO format
+├── split_y.json         # Annotations in COCO format
+└── split_z.json         # Annotations in COCO format
+```
+All image files (e.g., `image1.jpg`, `image2.jpg`, etc.) should be placed directly in the `images` directory. 
+
+The annotations.json files should contain the annotations for the respective splits. Please ensure that the file_name entries in the annotations point to absolute paths for proper integration.
+Once your dataset is structured correctly, you can integrate it into the framework, allowing you to run inference and perform other operations on your video data. 
+
 
 ## Metrics
-We convert all datasets to coco format, and we provide a script for metrics computation.
+To assess the performance of the SegTrackDetect framework, we convert all datasets into the COCO format and provide a dedicated script for computing evaluation metrics. This script effectively compares the predicted detections with the ground truth annotations, ensuring accuracy in performance measurement. Additionally, the inference scripts guarantee proper indexing of images when a dataset split is specified.
 
+To run the metrics computation script, use the following command:
+```bash
+python compute_metrics.py --dir <directory_with_detections> --gt_path <path_to_ground_truth_json> --th <score_threshold> --csv <path_to_save_metrics>
+```
+This will generate the evaluation metrics and save them in the specified CSV file for further analysis.
 
 
 # Architecture
