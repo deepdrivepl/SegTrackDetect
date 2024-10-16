@@ -131,6 +131,9 @@ All models we use, are in TorchScrpt format.
 
 # Licence
 
+The code in this repository is licensed under the [MIT License](LICENSE).<br /> 
+For third-party submodules, such as the [SORT tracker](https://github.com/deepdrivepl/SORT), please refer to their respective licenses.<br /> 
+All trained models are distributed under licenses that comply with the terms of the datasets they were trained on.
 
 
 # Acknowledgements
