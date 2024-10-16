@@ -158,7 +158,17 @@ Once you've implemented your `CustomTracker` class, follow these steps to integr
    }
    ```
 
+
+
 ### ROI Estimation with Segmentation
+The ROI Estimation Module processes input images to generate probability masks used for selecting Regions of Interest (ROIs). All models utilized in this module are in TorchScript format, ensuring seamless integration into the framework.
+
+A comprehensive list of currently supported models, along with their names, can be found in the [model ZOO](#region-of-interest-estimation). The behavior of the ROI Estimation Module can be easily customized for the existing models, and you can also add your own models. To do this, navigate to the [estimator configs](rois/estimator/configs/) directory and create your own configuration dictionaries. Remember to register any new configurations in the [`ESTIMATOR MODELS`](https://github.com/deepdrivepl/SegTrackDetect/blob/main/rois/estimator/configs/__init__.py) to enable their usage by name in the main scripts.
+
+For existing models, you can implement new postprocessing functions or modify postprocessing parameters (e.g., thresholding or dilation). Please ensure that the  `postprocess` function returns the mask in a  `[H, W]` format.
+
+
+
 ## Object Detection
 ## Detection Aggregation and Filtering
 
