@@ -5,7 +5,7 @@ import time
 from statistics import mean
 
 from .configs import DETECTION_MODELS
-from .aggregation import non_max_suppression, rot90points, scale_coords
+from .aggregation import rot90points, scale_coords
 
     
 class Detector:
@@ -30,7 +30,6 @@ class Detector:
         device (str): Device being used ('cuda' or 'cpu').
         inference_times (list): List to store inference times.
         postprocess_times (list): List to store postprocessing times.
-        nms_times (list): List to store NMS times.
         postprocess_to_orig_times (list): List to store time taken to translate detections back to original image.
     """
 
@@ -46,22 +45,15 @@ class Detector:
 
         self.input_size = self.config['in_size']
 
-        # NMS 
-        self.conf_thresh = self.config['conf_thresh']
-        self.iou_thresh = self.config['iou_thresh']
-        self.multi_label = self.config['multi_label']
-        self.labels = self.config['labels']
-        self.merge = self.config['merge']
-        self.agnostic = self.config['agnostic']
-
-        self.preprocess = self.config['transform']
+        self.preprocess = self.config['preprocess']
+        self.preprocess_args = self.config['preprocess_args']
         self.postprocess = self.config['postprocess']
+        self.postprocess_args = self.config['postprocess_args']
         self.device = device
 
 
         self.inference_times = []
         self.postprocess_times = []
-        self.nms_times = []
         self.postprocess_to_orig_times = []
 
 
@@ -76,24 +68,13 @@ class Detector:
             list: List of detections for each image in the batch.
         """
         t1 = time.time()
+        img_tensor = self.preprocess(img_tensor, **self.preprocess_args)
         detections = self.net(img_tensor.to(self.device))
         self.inference_times.append(time.time()-t1)
 
         t2 = time.time()
-        detections = self.postprocess(detections)
+        detections = self.postprocess(detections, **self.postprocess_args)
         self.postprocess_times.append(time.time()-t2)
-
-        t3 = time.time()
-        detections = non_max_suppression(
-            detections, 
-            conf_thres = self.conf_thresh, 
-            iou_thres = self.iou_thresh,
-            multi_label = self.multi_label,
-            labels = self.labels,
-            merge = self.merge,
-            agnostic = self.agnostic
-        )
-        self.nms_times.append(time.time()-t3)
 
         return detections
 
@@ -102,9 +83,10 @@ class Detector:
         """Retrieve the configuration settings of the detector.
 
         Returns:
-            dict: Dictionary containing the configuration settings, excluding transform and postprocess.
+            dict: Dictionary containing the configuration settings, excluding preprocess and postprocess
+                functions.
         """
-        return {'detector': {k:v for k,v in self.config.items() if k not in ['transform', 'postprocess']}}
+        return {'detector': {k:v for k,v in self.config.items() if k not in ['preprocess', 'postprocess']}}
 
 
     def postprocess_detections(self, detections, det_metadata):
@@ -175,12 +157,12 @@ class Detector:
 
 
     def get_execution_times(self, num_images):
-        """Calculate average execution times for inference, postprocessing, NMS, and postprocessing to original.
+        """Calculate average execution times for inference, postprocessing, and postprocessing to original.
 
         Args:
             num_images (int): Number of images processed.
 
         Returns:
-            tuple: Average execution times for inference, postprocessing, NMS, and postprocessing to original.
+            tuple: Average execution times for inference, postprocessing, and postprocessing to original.
         """
-        return sum(self.inference_times)/num_images, sum(self.postprocess_times)/num_images, sum(self.nms_times)/num_images, sum(self.postprocess_to_orig_times)/num_images
+        return sum(self.inference_times)/num_images, sum(self.postprocess_times)/num_images, sum(self.postprocess_to_orig_times)/num_images

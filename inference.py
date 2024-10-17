@@ -151,7 +151,7 @@ if __name__ == '__main__':
                     img_det = torch.empty((0,6))
 
                 t1 = time.time()
-                roi_extractor.predictor.update_tracker_state(img_det.detach().cpu().numpy()[:, :-1])
+                roi_extractor.update_predictor(img_det.detach().cpu().numpy()[:, :-1])
                                                     
                 if args.debug:
                     frame = cv2.imread(metadata['image_path'][0])

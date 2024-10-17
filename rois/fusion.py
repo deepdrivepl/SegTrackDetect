@@ -98,6 +98,17 @@ class ROIModule:
         self.predictor = Predictor(self.tracker_name) if self.is_sequence else None
 
 
+    def update_predictor(self, img_det):
+        """
+        Updates the predictor state with new_detections.
+        
+        Args:
+            img_det (np.ndarray): A numpy array with detected objects.
+        """
+        if self.predictor:
+            self.predictor.update_tracker_state(img_det) 
+
+
     def get_masks(self, shape):
         """
         Resizes and returns both estimated and predicted masks for visualization.

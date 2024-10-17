@@ -1,6 +1,39 @@
 import torch
 
-from .aggregation import box_iou
+
+
+def box_iou(box1, box2):
+    """Calculate Intersection over Union (IoU) for two sets of boxes.
+
+    Args:
+        box1 (Tensor[N, 4]): First set of boxes in (x1, y1, x2, y2) format.
+        box2 (Tensor[M, 4]): Second set of boxes in (x1, y1, x2, y2) format.
+
+    Returns:
+        Tensor[N, M]: NxM matrix containing the pairwise IoU values for every 
+        element in boxes1 and boxes2.
+    """
+
+    def box_area(box):
+        """Calculate the area of the boxes.
+
+        Args:
+            box (Tensor): Box coordinates in (x1, y1, x2, y2) format.
+
+        Returns:
+            Tensor: Area of the boxes.
+        """
+        return (box[2] - box[0]) * (box[3] - box[1])
+
+    area1 = box_area(box1.T)
+    area2 = box_area(box2.T)
+
+    inter = (torch.min(box1[:, None, 2:], box2[:, 2:]) - 
+             torch.max(box1[:, None, :2], box2[:, :2])).clamp(0).prod(2)
+
+    return inter / (area1[:, None] + area2 - inter)  # iou = inter / (area1 + area2 - inter)
+
+    
 
 
 def overlapping_box_suppression(windows, bboxes, th=0.6):

@@ -24,14 +24,17 @@ Usage:
         CustomModel = dict(
             weights = "weights/my_custom_model_weights.pt",
             in_size = (512, 512),
-            conf_thresh = 0.1,
-            iou_thresh = 0.45,
-            multi_label = True,
-            labels = [],
-            merge = False,
-            agnostic = False,
-            transform = T.ToTensor(),
+            preprocess = yolo_preprocess,
+            preprocess_args = dict(),
             postprocess = yolo_postprocess,
+            postprocess_args = dict(
+                conf_thresh = 0.01,
+                iou_thresh = 0.65,
+                multi_label = True,
+                labels = [],
+                merge = False,
+                agnostic = False,
+            ),
             classes = ['class_a', 'class_b', 'class_c'],
             colors = [(255, 0, 0), (0, 255, 0), (0, 0, 255)]
         )
