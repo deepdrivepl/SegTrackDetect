@@ -1,15 +1,94 @@
 import os
 import time
+import json
 
+from glob import glob
 
 import cv2
 import numpy as np
+import pandas as pd
 import kornia
 
 import torch
 from torchvision import transforms as T
 from collections import defaultdict
 
+
+
+
+class DirectoryDataset:
+
+    def __init__(self, data_root, split='val', flist=None, name=None, colors=None):
+
+        self.data_root = data_root
+
+        if flist is not None:
+            self.images = [x.rstrip() for x in open(flist)]
+            self.images = [x for x in self.images if os.path.isfile(x)]
+            print(f"Found {len(self.images)} images in {flist}")
+
+            anno_path = f"{data_root}/{name}.json"
+            if not os.path.isfile(anno_path):
+                print(f"Creating COCO annotations for custom split {name}.")
+                self.annotations = self.load_all_annos()
+                with open(anno_path, 'w', encoding='utf-8') as f:
+                    json.dump(self.annotations, f, ensure_ascii=False, indent=4)
+            else:
+                self.annotations = json.load(open(anno_path))
+
+        else:
+            anno_path = f"{data_root}/{split}.json"
+            if not os.path.isfile(anno_path):
+                print(f"{anno_path} does not exist, provide a valid split")
+                exit(1)
+            self.annotations = json.load(open(anno_path))
+            self.images = [x['file_name'] for x in self.annotations['images']]
+            self.images = [x for x in self.images if os.path.isfile(x)]
+            print(f"Found {len(self.images)} images in {anno_path}")
+
+        self.is_sequential = self.images[0].split(os.sep)[-2] != 'images'
+        print(self.is_sequential)
+        self.seq2images = self.get_seq2images()
+        print({k:f'len(seq): {len(v)}' for k,v in self.seq2images.items()})
+
+        self.metadata = pd.DataFrame(self.annotations['images'])
+        self.classes = [x['name'] for x in self.annotations['categories']]
+        self.colors = colors if colors is not None else [tuple(map(int, np.random.choice(range(256), size=3))) for cls in range(len(self.classes))]
+
+
+    def get_seq2images(self):
+        sequences = list(set([x.split(os.sep)[-2] for x in self.images]))
+        sequences = sorted(sequences)
+        
+        if sequences[0] != 'images':
+            seq2images = {seq: sorted([x for x in self.images if x.split(os.sep)[-2]==seq]) for seq in sequences}
+        else:
+            seq2images = {'images': sorted(self.images)}
+        return seq2images
+
+
+    def load_all_annos(self):
+        annos_paths = glob(f"{self.data_root}/*.json")
+        print(f"Found {len(annos_paths)} annotation files is {self.data_root}")
+
+        if len(annos_paths) == 0:
+            print("Annotations not available")
+            return None
+
+        images, annotations, categories = [], [], []
+        for anno_path in annos_paths:
+            annos = json.load(open(anno_path))
+            images+=annos["images"]
+            annotations+=annos["annotations"]
+            categories = annos["categories"]
+
+        return {"images": list(set(images)), "annotations": list(set(annotations)), "categories": list(set(categories))}
+
+
+    def get_image_metadata(self, img_path):
+        metadata = self.metadata[self.metadata.file_name == os.path.abspath(img_path)]
+        assert len(metadata) == 1
+        return metadata.iloc[0].to_dict()
 
 
 def resize_keep_ar(img, new_shape=(640, 640)):
