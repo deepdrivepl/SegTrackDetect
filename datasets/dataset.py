@@ -17,6 +17,28 @@ from collections import defaultdict
 
 
 class DirectoryDataset:
+    """A dataset class for loading images and annotations from a directory.
+
+    This class handles loading images and their corresponding COCO-format annotations 
+    from a directory. It supports both predefined splits and custom splits.
+
+    Args:
+        data_root (str): Root directory containing images and annotation files.
+        split (str, optional): Name of the predefined dataset split. Defaults to 'val'.
+        flist (str, optional): Path to the file containing a list of image file paths. Defaults to None.
+        name (str, optional): Name of the custom split for which annotations will be generated. Defaults to None.
+        colors (list of tuple, optional): Predefined list of RGB colors for each class. Defaults to None.
+
+    Attributes:
+        data_root (str): Root directory containing images and annotation files.
+        images (list of str): List of file paths to the images.
+        annotations (dict): COCO-format annotations including images, annotations, and categories.
+        is_sequential (bool): Whether the dataset has sequential image directories.
+        seq2images (dict): Mapping of sequence names to lists of image file paths.
+        metadata (pandas.DataFrame): Metadata of the images loaded from the annotations.
+        classes (list of str): List of class names from the COCO-format annotations.
+        colors (list of tuple): List of colors (RGB tuples) for each class, if provided, or random otherwise.
+    """
 
     def __init__(self, data_root, split='val', flist=None, name=None, colors=None):
 
@@ -57,6 +79,11 @@ class DirectoryDataset:
 
 
     def get_seq2images(self):
+        """Creates a mapping of sequences to their corresponding images.
+
+        Returns:
+            dict: A dictionary where the keys are sequence names and the values are lists of image file paths.
+        """
         sequences = list(set([x.split(os.sep)[-2] for x in self.images]))
         sequences = sorted(sequences)
         
@@ -68,6 +95,14 @@ class DirectoryDataset:
 
 
     def load_all_annos(self):
+        """Loads all COCO annotations from the root directory.
+
+        Looks for JSON files in the root directory and aggregates their content into a single dictionary.
+
+        Returns:
+            dict: A dictionary containing 'images', 'annotations', and 'categories' keys, each mapping to aggregated lists.
+                  Returns None if no annotation files are found.
+        """
         annos_paths = glob(f"{self.data_root}/*.json")
         print(f"Found {len(annos_paths)} annotation files is {self.data_root}")
 
@@ -86,9 +121,22 @@ class DirectoryDataset:
 
 
     def get_image_metadata(self, img_path):
+        """Fetches COCO metadata for a given image.
+
+        Args:
+            img_path (str): The file path to the image.
+
+        Returns:
+            dict: A dictionary containing metadata of the image (e.g., file_name, width, height).
+
+        Raises:
+            AssertionError: If no matching metadata is found for the image.
+        """
         metadata = self.metadata[self.metadata.file_name == os.path.abspath(img_path)]
         assert len(metadata) == 1
         return metadata.iloc[0].to_dict()
+
+
 
 
 def resize_keep_ar(img, new_shape=(640, 640)):
