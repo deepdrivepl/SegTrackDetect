@@ -15,7 +15,8 @@ import pandas as pd
 import torch
 from torch.utils.data import DataLoader
 
-from datasets import WindowDetectionDataset, ROIDataset, DATASETS
+from datasets import WindowDetectionDataset, ROIDataset, DirectoryDataset
+from datasets.configs import DATASETS
 from drawing import make_vis
 
 from rois import ROIModule
@@ -38,8 +39,14 @@ def main(args):
     
 
     # Get dataset
-    flist = args.flist if args.flist is None else [x.rstrip() for x in open(args.flist)]
-    ds = (DATASETS[args.ds])(split=args.split, flist=flist, name=args.name)
+    ds = DirectoryDataset(
+        data_root = DATASETS[args.ds]['data_root'] if args.ds in DATASETS.keys() else args.data_root,
+        split = args.split,
+        flist = args.flist,
+        name = args.name,
+        colors = DATASETS[args.ds]['colors'] if args.ds in DATASETS.keys() else None
+    )
+    images = ds.seq2images['images']
 
     # Get models
     device = torch.device('cuda:0') if torch.cuda.device_count() > 0 and not args.cpu else 'cpu'
@@ -47,7 +54,7 @@ def main(args):
     roi_extractor = ROIModule(
         tracker_name = args.tracker,
         estimator_name = args.roi_model,
-        is_sequence = False,
+        is_sequence = ds.is_sequential,
         device = device,
         bbox_type = args.bbox_type,
         allow_resize = args.allow_resize
@@ -65,7 +72,7 @@ def main(args):
     annotations = []
     times = defaultdict(list)
 
-    dataset = ROIDataset(ds.get_images(), ds, roi_extractor.estimator.input_size, roi_extractor.estimator.preprocess)
+    dataset = ROIDataset(images, ds, roi_extractor.estimator.input_size, roi_extractor.estimator.preprocess)
     all_images = len(dataset)
     dataloader = DataLoader(dataset, batch_size=1, shuffle=False, num_workers=4, pin_memory=True)
 
@@ -156,6 +163,7 @@ if __name__ == '__main__':
 
     # dataset
     parser.add_argument('--ds', type=str, default="SeaDronesSee", choices=DATASETS.keys(), help='Dataset name. See available datasets in datasets module.')
+    parser.add_argument('--data_root', type=str, help='Data root for custom dataset.')
     parser.add_argument('--split', type=str, default='test', help='Dataset split to use.')
     parser.add_argument('--flist', type=str, help='If provided, infer images listed in flist.txt; if not, infer split images.')
     parser.add_argument('--name', type=str, help='Name for img list provided in flist.txt')
