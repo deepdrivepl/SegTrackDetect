@@ -34,34 +34,34 @@ If you prefer to download specific datasets, you can run the corresponding scrip
 
 
 ## Examples
-SegTrackDetect framework supports tiny object detection across consecutive frames (video detection) as well as on independent windows.
+The SegTrackDetect framework enables robust tiny object detection both across consecutive video frames (video mode) and within independent detection windows. The dataset type is automatically inferred from the dataset directory structure. For more information, see [datasets](#new-datasets).
 
-To perform detection on video data using one of the supported datasets, such as `SeaDronesSee`, you can use the following command:
+To perform detection on video data using a supported dataset like `SeaDronesSee`, run the following command:
 ```bash
-python inference_vid.py \
+python inference.py \
 --roi_model 'SDS_large' --det_model 'SDS' --tracker 'sort' \
---ds 'SeaDronesSee' --split 'val' \
+--data_root '/SegTrackDetect/data/SeaDronesSee' --split 'val' \
 --bbox_type 'sorted' --allow_resize --obs_iou_th 0.1 \
 --out_dir 'results/SDS/val' --debug
 ```
 
-For detecting objects in independent windows, for example with the `MTSD` dataset, run:
+To detect objects in independent windows, for instance, using the `MTSD` dataset, you can use the same script with slight modifications:
 ```bash
-python inference_img.py \
+python inference.py \
 --roi_model 'MTSD' --det_model 'MTSD' \
---ds 'MTSD' --split 'val' \
+--data_root '/SegTrackDetect/data/MTSD' --split 'val'  \
 --bbox_type 'sorted' --allow_resize --obs_iou_th 0.7 \
 --out_dir 'results/MTSD/val' --debug
 ```
 
-The following table outlines the command-line arguments that can be used when running the inference scripts. These arguments allow you to customize the behavior of the detection process by specifying models, datasets, and various configurations.
+The following table outlines the command-line arguments that can be used when running the inference script. These arguments allow you to customize the behavior of the detection process by specifying models, datasets, and various configurations.
 
 | Argument          | Type      | Description                                                                                                                                 |
 |:-------------------:|-----------|---------------------------------------------------------------------------------------------------------------------------------------------|
 | `--roi_model`     | `str`     | Specifies the ROI model to use (e.g., `SDS_large`). All available ROI models are defined [here](rois/estimator/configs/__init__.py)         |
 | `--det_model`     | `str`     | Specifies the detection model to use (e.g., `SDS`). All available detectors are defined [here](detector/configs/__init__.py)                |
-| `--tracker`       | `str`     | Specifies the tracker to use (e.g., `sort`). All available trackers are defoned [here](rois/predictor/configs/__init__.py)                  |
-| `--ds`            | `str`     | Dataset to use for inference (e.g., `SeaDronesSee`). Available [datasets](datasets/__init__.py)                                             |
+| `--tracker`       | `str`     | Specifies the tracker to use (e.g., `sort`). All available trackers are defined [here](rois/predictor/configs/__init__.py)                  |
+| `--data_root`     | `str`     | Path to the dataset directory (e.g., `/SegTrackDetect/data/MTSD`                                                                            |
 | `--split`         | `str`     | Data split to use (e.g., `val` for validation). If present, the script will save the detections using the coco image ids used in `val.json` |
 | `--flist`         | `str`     | An alternative version of providing an image list, path to the file with absolute paths to images.                                          |
 | `--name`          | `str`     | A name for provided `flist`, coco annotations `name.json` will be generated and saved in the dataset root directory                         |
