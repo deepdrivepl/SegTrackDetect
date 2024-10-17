@@ -32,6 +32,8 @@ Usage:
             agnostic = False,
             transform = T.ToTensor(),
             postprocess = yolo_postprocess,
+            classes = ['class_a', 'class_b', 'class_c'],
+            colors = [(255, 0, 0), (0, 255, 0), (0, 0, 255)]
         )
         
         DETECTION_MODELS = {

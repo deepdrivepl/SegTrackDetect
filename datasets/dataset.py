@@ -12,7 +12,8 @@ import kornia
 import torch
 from torchvision import transforms as T
 from collections import defaultdict
-
+from PIL import Image
+from tqdm import tqdm
 
 
 
@@ -27,7 +28,6 @@ class DirectoryDataset:
         split (str, optional): Name of the predefined dataset split. Defaults to 'val'.
         flist (str, optional): Path to the file containing a list of image file paths. Defaults to None.
         name (str, optional): Name of the custom split for which annotations will be generated. Defaults to None.
-        colors (list of tuple, optional): Predefined list of RGB colors for each class. Defaults to None.
 
     Attributes:
         data_root (str): Root directory containing images and annotation files.
@@ -36,18 +36,17 @@ class DirectoryDataset:
         is_sequential (bool): Whether the dataset has sequential image directories.
         seq2images (dict): Mapping of sequence names to lists of image file paths.
         metadata (pandas.DataFrame): Metadata of the images loaded from the annotations.
-        classes (list of str): List of class names from the COCO-format annotations.
-        colors (list of tuple): List of colors (RGB tuples) for each class, if provided, or random otherwise.
     """
 
-    def __init__(self, data_root, split='val', flist=None, name=None, colors=None):
+    def __init__(self, data_root, split='val', flist=None, name=None):
 
         self.data_root = data_root
 
         if flist is not None:
+            assert name is not None, "Provide a --name for your --flist"
             self.images = [x.rstrip() for x in open(flist)]
-            self.images = [x for x in self.images if os.path.isfile(x)]
-            print(f"Found {len(self.images)} images in {flist}")
+            self.images = list(set(self.images))
+            self.images = sorted([x for x in self.images if os.path.isfile(x)])
 
             anno_path = f"{data_root}/{name}.json"
             if not os.path.isfile(anno_path):
@@ -65,17 +64,17 @@ class DirectoryDataset:
                 exit(1)
             self.annotations = json.load(open(anno_path))
             self.images = [x['file_name'] for x in self.annotations['images']]
-            self.images = [x for x in self.images if os.path.isfile(x)]
-            print(f"Found {len(self.images)} images in {anno_path}")
+            self.images = list(set(self.images))
+            self.images = sorted([x for x in self.images if os.path.isfile(x)])
 
+        
+        print(f"Found {len(self.images)} images")
         self.is_sequential = self.images[0].split(os.sep)[-2] != 'images'
-        print(self.is_sequential)
         self.seq2images = self.get_seq2images()
         print({k:f'len(seq): {len(v)}' for k,v in self.seq2images.items()})
 
         self.metadata = pd.DataFrame(self.annotations['images'])
-        self.classes = [x['name'] for x in self.annotations['categories']]
-        self.colors = colors if colors is not None else [tuple(map(int, np.random.choice(range(256), size=3))) for cls in range(len(self.classes))]
+        self.metadata = self.metadata.drop_duplicates(ignore_index=True)
 
 
     def get_seq2images(self):
@@ -101,14 +100,20 @@ class DirectoryDataset:
 
         Returns:
             dict: A dictionary containing 'images', 'annotations', and 'categories' keys, each mapping to aggregated lists.
-                  Returns None if no annotation files are found.
         """
         annos_paths = glob(f"{self.data_root}/*.json")
         print(f"Found {len(annos_paths)} annotation files is {self.data_root}")
 
         if len(annos_paths) == 0:
-            print("Annotations not available")
-            return None
+            print("Annotations not available. Creating empty annotations")
+            images = []
+            for img_id, img_path in tqdm(enumerate(self.images)):
+                W,H = Image.open(img_path).size
+                images.append({
+                    "id": img_id, "file_name": os.path.abspath(img_path), "height": H, "width": W
+                })
+            return {"images": images, "annotations": [], "categories": []}
+
 
         images, annotations, categories = [], [], []
         for anno_path in annos_paths:
@@ -117,7 +122,7 @@ class DirectoryDataset:
             annotations+=annos["annotations"]
             categories = annos["categories"]
 
-        return {"images": list(set(images)), "annotations": list(set(annotations)), "categories": list(set(categories))}
+        return {"images": images, "annotations": annotations, "categories": categories}
 
 
     def get_image_metadata(self, img_path):
