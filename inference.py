@@ -72,11 +72,6 @@ if __name__ == '__main__':
         name = args.name,
     )
     seq2images = ds.seq2images
-    
-    if not ds.is_sequential:
-        print("Non-sequential data found; falling back to ROI mode.")
-        exit(1) # TODO run second script (img only)
-
 
     # Get models
     device = torch.device('cuda:0') if torch.cuda.device_count() > 0 and not args.cpu else 'cpu'

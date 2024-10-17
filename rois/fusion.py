@@ -95,7 +95,7 @@ class ROIModule:
         Resets the predictor by reinitializing it with the same tracker.
         Should be used at the beginning of each sequence.
         """
-        self.predictor = Predictor(self.tracker_name)
+        self.predictor = Predictor(self.tracker_name) if self.is_sequence else None
 
 
     def get_masks(self, shape):
