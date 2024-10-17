@@ -28,7 +28,7 @@ Once you have Docker set up, you can download all the trained models listed in t
 
 We currently support four [datasets](#datasets), and we provide scripts to download and convert them into a compatible format. To download and convert all datasets at once, execute:
 ```bash
-./download_and_convert.sh
+./scripts/download_and_convert.sh
 ```
 If you prefer to download specific datasets, you can run the corresponding scripts located in the [`scripts`](scripts/) directory.
 
