@@ -16,7 +16,6 @@ import torch
 from torch.utils.data import DataLoader
 
 from datasets import WindowDetectionDataset, ROIDataset, DirectoryDataset
-from datasets.configs import DATASETS
 from drawing import make_vis
 
 from rois import ROIModule
@@ -34,7 +33,6 @@ if __name__ == '__main__':
     parser.add_argument('--tracker', type=str, default="sort", help='Tracker name. Must be defined in rois.predictor.configs.PREDICTOR_MODELS')
 
     # dataset
-    parser.add_argument('--ds', type=str, default="SeaDronesSee", choices=DATASETS.keys(), help='Dataset name. See available datasets in datasets module.')
     parser.add_argument('--data_root', type=str, help='Data root for custom dataset.')
     parser.add_argument('--split', type=str, default='test', help='Dataset split to use.')
     parser.add_argument('--flist', type=str, help='If provided, infer images listed in flist.txt; if not, infer split images.')
@@ -68,11 +66,10 @@ if __name__ == '__main__':
 
     # Get dataset
     ds = DirectoryDataset(
-        data_root = DATASETS[args.ds]['data_root'] if args.ds in DATASETS.keys() else args.data_root,
+        data_root = args.data_root,
         split = args.split,
         flist = args.flist,
         name = args.name,
-        colors = DATASETS[args.ds]['colors'] if args.ds in DATASETS.keys() else None
     )
     seq2images = ds.seq2images
     
@@ -164,7 +161,7 @@ if __name__ == '__main__':
                 if args.debug:
                     frame = cv2.imread(metadata['image_path'][0])
                     estim_mask, pred_mask = roi_extractor.get_masks(frame.shape[:2])
-                    frame = make_vis(frame, estim_mask, pred_mask, det_bboxes, img_det, ds.classes, ds.colors, args.vis_conf_th)
+                    frame = make_vis(frame, estim_mask, pred_mask, det_bboxes, img_det, detector.config['classes'], detector.config['colors'], args.vis_conf_th)
                     out_fname = f"{debug_dir}/{seq_name}/{os.path.basename(metadata['image_path'][0])}"
                     os.makedirs(os.path.dirname(out_fname), exist_ok=True)
                     cv2.imwrite(out_fname, frame)
