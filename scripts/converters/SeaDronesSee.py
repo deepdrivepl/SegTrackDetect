@@ -12,7 +12,7 @@ import pandas as pd
 
 class SeaDronesSeeDataset():
     
-    def __init__(self, rm_old=True):
+    def __init__(self, rm_old=False):
         
         self.root_dir = '/SegTrackDetect/data/SeaDronesSee'
         self.splits = ['train', 'val', 'test']
@@ -50,7 +50,9 @@ class SeaDronesSeeDataset():
 
                 img_meta = meta.iloc[img_id]
                 old_image_path = f"{self.root_dir}/images/{split_name}/{img_meta['file_name']}"
-                out_image_path = f"{self.out_img_dir}/{img_meta['sequence']}/{img_meta['file_name']}"
+
+                new_fname = f"{int(img_meta['file_name'].replace('.jpg', '')):06d}.jpg"
+                out_image_path = f"{self.out_img_dir}/{img_meta['sequence']}/{new_fname}"
 
                 os.makedirs(os.path.dirname(out_image_path), exist_ok=True)
                 copyfile(old_image_path, out_image_path)
@@ -105,7 +107,7 @@ class SeaDronesSeeDataset():
         merged = pd.merge(coco_metadata, orig_metadata, on="id")
        
         coco_metadata['sequence'] = merged.apply(lambda x: x.video_id, axis=1)
-        coco_metadata['frame_id'] = merged['frame_index']
+        coco_metadata['frame_id'] = merged['frame_index'].astype(int)
         coco_metadata['sequence'] = coco_metadata['sequence'].astype(str)
 
         unique_sequences = coco_metadata.sequence.unique()
@@ -117,7 +119,7 @@ class SeaDronesSeeDataset():
             seq_df = seq_df.reset_index()
 
             prev_frame, current_frame = None, None
-            seq_id = 1
+            seq_id = 1 # last dir +1
             for i in range(len(seq_df)):
                 current_frame = seq_df.iloc[i].frame_id
 
