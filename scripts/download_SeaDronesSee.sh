@@ -1,4 +1,4 @@
-OUT_DIR="data/SeaDronesSee"
+OUT_DIR="/SegTrackDetect/data/SeaDronesSee"
 
 mkdir -p $OUT_DIR
 
@@ -11,3 +11,5 @@ wget "https://cloud.cs.uni-tuebingen.de/index.php/s/W4ztazMxqfHdYWA/download?pat
 unzip $OUT_DIR/images.zip -d $OUT_DIR
 mv "$OUT_DIR/Compressed" "$OUT_DIR/images" 
 rm $OUT_DIR/images.zip
+
+python /SegTrackDetect/scripts/converters/SeaDronesSee.py

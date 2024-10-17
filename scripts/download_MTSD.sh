@@ -1,4 +1,4 @@
-OUT_DIR="data/MTSD"
+OUT_DIR="/SegTrackDetect/data/MTSD"
 
 mkdir -p $OUT_DIR
 
@@ -21,3 +21,5 @@ MTSD/
 ├── splits
 └── visualize_example.py
 "
+echo ""
+echo "Then run python /SegTrackDetect/scripts/converters/MTSD.py to convert the dataset to the required format"

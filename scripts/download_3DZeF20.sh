@@ -1,4 +1,4 @@
-OUT_DIR="data"
+OUT_DIR="/SegTrackDetect/data"
 
 mkdir -p $OUT_DIR
 
@@ -7,3 +7,5 @@ wget "https://motchallenge.net/data/3DZeF20.zip" -O $OUT_DIR/3DZeF20.zip
 
 unzip $OUT_DIR/3DZeF20.zip -d $OUT_DIR
 rm $OUT_DIR/3DZeF20.zip
+
+python /SegTrackDetect/scripts/converters/ZebraFish.py

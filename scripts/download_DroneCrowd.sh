@@ -1,4 +1,4 @@
-OUT_DIR="data/DroneCrowd"
+OUT_DIR="/SegTrackDetect/data/DroneCrowd"
 
 mkdir -p $OUT_DIR
 
@@ -14,3 +14,5 @@ unzip $OUT_DIR/val_data.zip -d $OUT_DIR
 unzip $OUT_DIR/test_data.zip -d $OUT_DIR
 
 rm $OUT_DIR/annotations.zip $OUT_DIR/train_data.zip $OUT_DIR/val_data.zip $OUT_DIR/test_data.zip 
+
+python /SegTrackDetect/scripts/converters/DroneCrowd.py
