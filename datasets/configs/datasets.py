@@ -1,4 +1,10 @@
+"""
+Dictionaries that contain the configurations for predefined datasets. 
 
+Keys:
+- data_root: the dataset root directory
+- colors: class colors for visualization
+"""
 
 
 
