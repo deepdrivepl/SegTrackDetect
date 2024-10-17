@@ -131,7 +131,7 @@ class ROIModule:
         Returns:
             dict: A dictionary containing ROI estimator and predictor configurations.
         """
-        estimator_config = {k:v for k,v in self.estimator.config.items() if k not in ['transform', 'postprocess']}
+        estimator_config = {k:v for k,v in self.estimator.config.items() if k not in ['preprocess', 'postprocess']}
         predictor_config = self.predictor.config if self.predictor else None
         return {'ROI_estimator': estimator_config, 'ROI_predictor': predictor_config}
 

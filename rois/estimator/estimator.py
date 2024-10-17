@@ -42,20 +42,14 @@ class Estimator:
         self.net.eval() # ?
 
         self.input_size = self.config['in_size']
-        self.preprocess = self.config['transform']
+        self.preprocess = self.config['preprocess']
+        self.preprocess_args = self.config['preprocess_args']
         self.postprocess = self.config['postprocess']
+        self.postprocess_args = self.config['postprocess_args']
         self.device = device
-
-        self.sigmoid_incl = self.config['sigmoid_included']
-        self.thresh = self.config['thresh']
-        self.dilate = self.config['dilate']
-        self.k_size = self.config['k_size']
-        self.iter = self.config['iter']
 
         self.postprocess_times = []
         self.infer_times = []
-
-        print(f'Postprocessing estimated mask with: threshold={self.thresh}, dilate={self.dilate}, k_size={self.k_size}, iter={self.iter}\nEdit ESTIMATOR_MODELS to change these values')
 
 
     @torch.no_grad()
@@ -78,11 +72,8 @@ class Estimator:
         estimated_mask = self.postprocess(
             estimated_mask, 
             orig_shape,
-            self.sigmoid_incl,
-            self.thresh,
-            self.dilate,
-            self.k_size,
-            self.iter
+            **self.postprocess_args
+            
         )
         self.postprocess_times.append(time.time()-t2)
         return estimated_mask

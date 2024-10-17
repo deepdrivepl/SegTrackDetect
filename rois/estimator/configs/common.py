@@ -2,7 +2,7 @@ from torchvision import transforms as T
 
 
 
-def estimator_transform(h, w):
+def estimator_preprocess(h, w):
     """
     Creates a transformation pipeline for image preprocessing for the estimator.
     This function composes a series of transformations to resize the image 

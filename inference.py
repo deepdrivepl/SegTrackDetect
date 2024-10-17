@@ -105,7 +105,7 @@ if __name__ == '__main__':
 
         roi_extractor.reset_predictor() # new tracker for each sequence 
         
-        dataset = ROIDataset(seq_flist, ds, roi_extractor.estimator.input_size, roi_extractor.estimator.preprocess)
+        dataset = ROIDataset(seq_flist, ds, roi_extractor.estimator.input_size, roi_extractor.estimator.preprocess(**roi_extractor.estimator.preprocess_args))
         all_images += len(dataset)
         dataloader = DataLoader(dataset, batch_size=1, shuffle=False, num_workers=4, pin_memory=True)
 

@@ -3,7 +3,7 @@ import numpy as np
 
 import torch
 import kornia
-from .common import estimator_transform
+from .common import estimator_preprocess
 
 
 
@@ -54,117 +54,153 @@ Weights are torch.jit.ScriptModules to avoid model dependencies.
 Keys:
 - weights: Path to the pre-trained model weights (torch.jit.ScriptModule).
 - in_size: Image dimensions for resizing during preprocessing.
-- thresh: Theshold value used to binarize the output mask during postprocessing.
-- sigmoid_included: Indicates if the model output includes a sigmoid activation.
-- dilate: If True, applies dilation to the binary mask to enhance the features.
-- k_size: The size of the dilation kernel.
-- iter: The number of iterations for dilation.
-- transform: Preprocessing function to be applied to the input image.
+- preprocess: Preprocessing function to be applied to the input image.
+- preprocess_args: Arguments for the preprocessing function.
 - postprocess: Post-processing function applied to the model outputs.
+- postprocess_args: Arguments for the postprocessing function.
 """
 
 ZeF20 = dict(
     weights = "weights/unetR18-ZebraFish.pt",
     in_size = (160,256),
-    thresh = 0.5,
-    args = None,
-    transform = estimator_transform,
-    sigmoid_included = True,
     postprocess = unet_postprocess,
-    dilate = True, 
-    k_size = 7,
-    iter = 1
-
+    postprocess_args = dict(
+        thresh = 0.5,
+        sigmoid_included = True,
+        dilate = True, 
+        k_size = 7,
+        iter = 1
+    ),
+    preprocess = estimator_preprocess,
+    preprocess_args = dict(
+        h = 160,
+        w = 256,
+    )
 )
 
 DroneCrowd_tiny = dict(
     weights = "weights/DroneCrowd-001-R18-96x160-best-loss.pt",
     in_size = (96,160),
-    thresh = 0.5,
-    args = None,
-    transform = estimator_transform,
-    sigmoid_included = True,
+    preprocess = estimator_preprocess,
+    preprocess_args = dict(
+        h = 96,
+        w = 160,
+    ),
     postprocess = unet_postprocess,
-    dilate = False, 
-    k_size = 7,
-    iter = 1
+    postprocess_args = dict(
+        thresh = 0.5,
+        sigmoid_included = True,
+        dilate = False, 
+        k_size = 7,
+        iter = 1
+    ),
 )
 
 DroneCrowd_small = dict(
     weights = "weights/DroneCrowd-001-R18-192x320-best-loss.pt",
     in_size = (192,320),
-    thresh = 0.5,
-    args = None,
-    transform = estimator_transform,
-    sigmoid_included = True,
+    preprocess = estimator_preprocess,
+    preprocess_args = dict(
+        h = 192,
+        w = 320,
+    ),
     postprocess = unet_postprocess,
-    dilate = False, 
-    k_size = 7,
-    iter = 1
+    postprocess_args = dict(
+        thresh = 0.5,
+        sigmoid_included = True,
+        dilate = False, 
+        k_size = 7,
+        iter = 1
+    ),
 )
 
 DroneCrowd_medium = dict(
     weights = "weights/DroneCrowd-001-R18-384x640-best-loss.pt",
     in_size = (384,640),
-    thresh = 0.5,
-    args = None,
-    transform = estimator_transform,
-    sigmoid_included = True,
+    preprocess = estimator_preprocess,
+    preprocess_args = dict(
+        h = 384,
+        w = 640,
+    ),
     postprocess = unet_postprocess,
-    dilate = False, 
-    k_size = 7,
-    iter = 1
+    postprocess_args = dict(
+        thresh = 0.5,
+        sigmoid_included = True,
+        dilate = False, 
+        k_size = 7,
+        iter = 1
+    ),
 )
 
 
 SeaDronesSee_tiny = dict(
     weights = "weights/SeaDronesSee-000-R18-64x96-best-loss.pt",
     in_size = (64,96),
-    thresh = 0.5,
-    args = None,
-    transform = estimator_transform,
-    sigmoid_included = True,
+    preprocess = estimator_preprocess,
+    preprocess_args = dict(
+        h = 64,
+        w = 96,
+    ),
     postprocess = unet_postprocess,
-    dilate = True, 
-    k_size = 7,
-    iter = 1
+    postprocess_args = dict(
+        thresh = 0.5,
+        sigmoid_included = True,
+        dilate = True, 
+        k_size = 7,
+        iter = 1
+    ),
 )
 
 SeaDronesSee_small = dict(
     weights = "weights/SeaDronesSee-000-R18-128x192-best-loss.pt",
     in_size = (128,192),
-    thresh = 0.5,
-    args = None,
-    transform = estimator_transform,
-    sigmoid_included = True,
+    preprocess = estimator_preprocess,
+    preprocess_args = dict(
+        h = 128,
+        w = 192,
+    ),
     postprocess = unet_postprocess,
-    dilate = True, 
-    k_size = 7,
-    iter = 1
+    postprocess_args = dict(
+        thresh = 0.5,
+        sigmoid_included = True,
+        dilate = True, 
+        k_size = 7,
+        iter = 1
+    ),
 )
 
 SeaDronesSee_medium = dict(
     weights = "weights/SeaDronesSee-000-R18-224x384-best-loss.pt",
     in_size = (224,384),
-    thresh = 0.5,
-    args = None,
-    transform = estimator_transform,
-    sigmoid_included = True,
+    preprocess = estimator_preprocess,
+    preprocess_args = dict(
+        h = 224,
+        w = 384,
+    ),
     postprocess = unet_postprocess,
-    dilate = True, 
-    k_size = 7,
-    iter = 1
+    postprocess_args = dict(
+        thresh = 0.5,
+        sigmoid_included = True,
+        dilate = True, 
+        k_size = 7,
+        iter = 1
+    ),
 )
 
 SeaDronesSee_large = dict(
     weights = "weights/SeaDronesSee-000-R18-448x768-best-loss.pt",
     in_size = (448,768),
-    thresh = 0.5,
-    args = None,
-    transform = estimator_transform,
-    sigmoid_included = True,
+    preprocess = estimator_preprocess,
+    preprocess_args = dict(
+        h = 448,
+        w = 768,
+    ),
     postprocess = unet_postprocess,
-    dilate = True, 
-    k_size = 7,
-    iter = 1
+    postprocess_args = dict(
+        thresh = 0.5,
+        sigmoid_included = True,
+        dilate = True, 
+        k_size = 7,
+        iter = 1
+    ),
 )

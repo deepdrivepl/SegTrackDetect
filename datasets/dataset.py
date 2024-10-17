@@ -196,7 +196,7 @@ class ROIDataset(torch.utils.data.Dataset):
     """
     def __init__(self, paths, dataset, roi_inf_size, roi_transform):
         self.paths = [x for x in paths if os.path.isfile(x)]
-        self.roi_transform = roi_transform(roi_inf_size[0], roi_inf_size[1])
+        self.roi_transform = roi_transform
         self.dataset = dataset
 
 

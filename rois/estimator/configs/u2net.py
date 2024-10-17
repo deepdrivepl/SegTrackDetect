@@ -4,7 +4,7 @@ import numpy as np
 import torch
 import kornia
 
-from .common import estimator_transform
+from .common import estimator_preprocess
 
 
 def u2net_postprocess(output, ori_shape, sigmoid_included=True, thresh=0.5, dilate=False, k_size=3, iter=1):
@@ -57,23 +57,27 @@ Weights are torch.jit.ScriptModules to avoid model dependencies.
 Keys:
 - weights: Path to the pre-trained model weights (torch.jit.ScriptModule).
 - in_size: Image dimensions for resizing during preprocessing.
-- thresh: Theshold value used to binarize the output mask during postprocessing.
-- sigmoid_included: Indicates if the model output includes a sigmoid activation.
-- dilate: If True, applies dilation to the binary mask to enhance the features.
-- k_size: The size of the dilation kernel.
-- iter: The number of iterations for dilation.
-- transform: Preprocessing function to be applied to the input image.
+- preprocess: Preprocessing function to be applied to the input image.
+- preprocess_args: Arguments for the preprocessing function.
 - postprocess: Post-processing function applied to the model outputs.
+- postprocess_args: Arguments for the postprocessing function.
 """
 
 MTSD = dict(
     weights = "weights/u2netp_MTSD.pt",
     in_size = (576,576),
-    thresh = 0.1,
-    transform = estimator_transform,
-    sigmoid_included = True,
+    preprocess = estimator_preprocess,
+    preprocess_args = dict(
+        h = 576,
+        w = 576,
+    ),
     postprocess = u2net_postprocess,
-    dilate = False, 
-    k_size = 7,
-    iter = 1
+    postprocess_args = dict(
+        thresh = 0.1,
+        sigmoid_included = True,
+        dilate = False, 
+        k_size = 7,
+        iter = 1
+    ),
 )
+    

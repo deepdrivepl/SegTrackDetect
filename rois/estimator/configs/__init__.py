@@ -30,14 +30,14 @@ Usage:
         CustomModel = dict(
             weights = "weights/my_custom_model_weights.pt",
             in_size = (512, 512),
-            thresh = 0.5,
-            args = None,
-            sigmoid_included = True,
-            dilate = False,
-            k_size = 3,
-            iter = 1,
-            transform = my_transform_function,
-            postprocess = my_postprocess_function,
+            postprocess = my_postprocess,
+            postprocess_args = dict(
+                ...
+            ),
+            preprocess = my_preprocess,
+            preprocess_args = dict(
+                ...
+            )
         )
         
         ESTIMATOR_MODELS = {
