@@ -8,12 +8,12 @@ from .common import estimator_preprocess
 
 
 
-def unet_postprocess(output, ori_shape, sigmoid_included=False, thresh=None, dilate=False, k_size=3, iter=1):
+def unet_postprocess(output, ori_shape, sigmoid_included=False, thresh=None, dilate=False, k_size=3):
     """
     Postprocesses the output of the UNet model to generate a binary mask.
 
     This function applies sigmoid activation if not included in the model, 
-    followed by thresholding and optional dilation.
+    followed by thresholding and dilation.
 
     Args:
         output (torch.Tensor): The output tensor from the UNet model, 
@@ -27,7 +27,6 @@ def unet_postprocess(output, ori_shape, sigmoid_included=False, thresh=None, dil
         dilate (bool, optional): If True, applies dilation to the binary mask 
             to enhance the mask features. Default is False.
         k_size (int, optional): The size of the dilation kernel. Default is 3.
-        iter (int, optional): The number of iterations for dilation. Default is 1.
 
     Returns:
         torch.Tensor: The postprocessed binary mask. Shape (H, W)
@@ -61,7 +60,7 @@ Keys:
 """
 
 ZeF20 = dict(
-    weights = "weights/unetR18-ZebraFish.pt",
+    weights = "/SegTrackDetect/weights/unetR18-ZebraFish.pt",
     in_size = (160,256),
     postprocess = unet_postprocess,
     postprocess_args = dict(
@@ -69,7 +68,6 @@ ZeF20 = dict(
         sigmoid_included = True,
         dilate = True, 
         k_size = 7,
-        iter = 1
     ),
     preprocess = estimator_preprocess,
     preprocess_args = dict(
@@ -79,7 +77,7 @@ ZeF20 = dict(
 )
 
 DroneCrowd_tiny = dict(
-    weights = "weights/DroneCrowd-001-R18-96x160-best-loss.pt",
+    weights = "/SegTrackDetect/weights/DroneCrowd-001-R18-96x160-best-loss.pt",
     in_size = (96,160),
     preprocess = estimator_preprocess,
     preprocess_args = dict(
@@ -92,12 +90,11 @@ DroneCrowd_tiny = dict(
         sigmoid_included = True,
         dilate = False, 
         k_size = 7,
-        iter = 1
     ),
 )
 
 DroneCrowd_small = dict(
-    weights = "weights/DroneCrowd-001-R18-192x320-best-loss.pt",
+    weights = "/SegTrackDetect/weights/DroneCrowd-001-R18-192x320-best-loss.pt",
     in_size = (192,320),
     preprocess = estimator_preprocess,
     preprocess_args = dict(
@@ -110,12 +107,11 @@ DroneCrowd_small = dict(
         sigmoid_included = True,
         dilate = False, 
         k_size = 7,
-        iter = 1
     ),
 )
 
 DroneCrowd_medium = dict(
-    weights = "weights/DroneCrowd-001-R18-384x640-best-loss.pt",
+    weights = "/SegTrackDetect/weights/DroneCrowd-001-R18-384x640-best-loss.pt",
     in_size = (384,640),
     preprocess = estimator_preprocess,
     preprocess_args = dict(
@@ -128,13 +124,12 @@ DroneCrowd_medium = dict(
         sigmoid_included = True,
         dilate = False, 
         k_size = 7,
-        iter = 1
     ),
 )
 
 
 SeaDronesSee_tiny = dict(
-    weights = "weights/SeaDronesSee-000-R18-64x96-best-loss.pt",
+    weights = "/SegTrackDetect/weights/SeaDronesSee-000-R18-64x96-best-loss.pt",
     in_size = (64,96),
     preprocess = estimator_preprocess,
     preprocess_args = dict(
@@ -147,12 +142,11 @@ SeaDronesSee_tiny = dict(
         sigmoid_included = True,
         dilate = True, 
         k_size = 7,
-        iter = 1
     ),
 )
 
 SeaDronesSee_small = dict(
-    weights = "weights/SeaDronesSee-000-R18-128x192-best-loss.pt",
+    weights = "/SegTrackDetect/weights/SeaDronesSee-000-R18-128x192-best-loss.pt",
     in_size = (128,192),
     preprocess = estimator_preprocess,
     preprocess_args = dict(
@@ -165,12 +159,11 @@ SeaDronesSee_small = dict(
         sigmoid_included = True,
         dilate = True, 
         k_size = 7,
-        iter = 1
     ),
 )
 
 SeaDronesSee_medium = dict(
-    weights = "weights/SeaDronesSee-000-R18-224x384-best-loss.pt",
+    weights = "/SegTrackDetect/weights/SeaDronesSee-000-R18-224x384-best-loss.pt",
     in_size = (224,384),
     preprocess = estimator_preprocess,
     preprocess_args = dict(
@@ -183,12 +176,11 @@ SeaDronesSee_medium = dict(
         sigmoid_included = True,
         dilate = True, 
         k_size = 7,
-        iter = 1
     ),
 )
 
 SeaDronesSee_large = dict(
-    weights = "weights/SeaDronesSee-000-R18-448x768-best-loss.pt",
+    weights = "/SegTrackDetect/weights/SeaDronesSee-000-R18-448x768-best-loss.pt",
     in_size = (448,768),
     preprocess = estimator_preprocess,
     preprocess_args = dict(
@@ -201,6 +193,5 @@ SeaDronesSee_large = dict(
         sigmoid_included = True,
         dilate = True, 
         k_size = 7,
-        iter = 1
     ),
 )

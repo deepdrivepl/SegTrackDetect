@@ -1,10 +1,7 @@
 import cv2
 import numpy as np
-import time
-
 import torch
 
-from statistics import mean
 
 from .estimator import Estimator
 from .predictor import Predictor
@@ -23,8 +20,6 @@ class ROIModule:
         is_sequence (bool): If True, indicates a sequence of frames is processed. If True, the ROI Prediction Module will be disabled.
         bbox_type (str): The bounding box type ('sorted' by default).
         allow_resize (bool): Whether resizing of bounding boxes is allowed.
-        rois_coordinates_times (list): List of times taken to calculate ROI bounding boxes.
-        detection_windows_times (list): List of times taken to calculate detection windows.
     
     Args:
         tracker_name (str): The name of the tracker model to use.
@@ -44,9 +39,6 @@ class ROIModule:
         self.is_sequence = is_sequence
         self.bbox_type = bbox_type
         self.allow_resize = allow_resize
-
-        self.rois_coorinates_times = []
-        self.detection_windows_times = []
 
 
     def get_fused_roi(self, frame_id, img_tensor, orig_shape, det_shape):
@@ -72,12 +64,9 @@ class ROIModule:
             self.predicted_mask = torch.zeros(self.estimated_mask.shape, dtype=torch.float32)
         fused_mask = torch.logical_or(self.estimated_mask.cpu(), self.predicted_mask).float()
 
-        t1 = time.time()
         fused_mask = (fused_mask.numpy() * 255).astype(np.uint8) # convert to numpy for cv2.findContours()
         fused_bboxes = get_roi_bounding_boxes(fused_mask, orig_shape, estimated_shape)
-        self.rois_coorinates_times.append(time.time()-t1)
 
-        t2 = time.time()
         detection_windows = get_detection_windows(
             fused_bboxes, 
             img_shape=orig_shape, 
@@ -86,7 +75,6 @@ class ROIModule:
             allow_resize=self.allow_resize,
         )
         
-        self.detection_windows_times.append(time.time()-t2)
         return detection_windows
 
 
@@ -134,23 +122,3 @@ class ROIModule:
         estimator_config = {k:v for k,v in self.estimator.config.items() if k not in ['preprocess', 'postprocess']}
         predictor_config = self.predictor.config if self.predictor else None
         return {'ROI_estimator': estimator_config, 'ROI_predictor': predictor_config}
-
-
-    def get_execution_times(self, num_images):
-        """
-        Calculates average execution times for ROI coordinates, detection windows, 
-        prediction, and estimation over a given number of images.
-
-        Args:
-            num_images (int): The number of images processed.
-
-        Returns:
-            tuple: A tuple containing average times for ROI coordinates, detection windows generation, 
-            predictor, and estimator execution.
-        """
-        return (sum(self.rois_coorinates_times)/num_images, 
-                sum(self.detection_windows_times)/num_images, 
-                self.predictor.get_execution_times(num_images), 
-                self.estimator.get_execution_times(num_images)
-                )
-

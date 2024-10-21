@@ -31,7 +31,7 @@ def box_iou(box1, box2):
     inter = (torch.min(box1[:, None, 2:], box2[:, 2:]) - 
              torch.max(box1[:, None, :2], box2[:, :2])).clamp(0).prod(2)
 
-    return inter / (area1[:, None] + area2 - inter)  # iou = inter / (area1 + area2 - inter)
+    return inter / (area1[:, None] + area2 - inter) 
 
     
 
@@ -40,8 +40,7 @@ def overlapping_box_suppression(windows, bboxes, th=0.6):
     """Perform overlapping box suppression to remove redundant bounding boxes.
 
     This function removes redundant bounding boxes based on their Intersection over Union (IoU) 
-    with the given thresholds. It also normalizes the confidence scores and areas to make informed 
-    decisions about which boxes to keep.
+    with the given thresholds. 
 
     Args:
         windows (torch.Tensor): A tensor of shape [N, 4] representing the bounding boxes to filter, 

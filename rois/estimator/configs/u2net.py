@@ -7,13 +7,13 @@ import kornia
 from .common import estimator_preprocess
 
 
-def u2net_postprocess(output, ori_shape, sigmoid_included=True, thresh=0.5, dilate=False, k_size=3, iter=1):
+def u2net_postprocess(output, ori_shape, sigmoid_included=True, thresh=0.5, dilate=False, k_size=3):
     """
     Postprocesses the output of the U2Net model to generate a binary mask.
 
     This function applies sigmoid activation if it is not included in the model, 
     followed by thresholding to binarize the output. If requested, dilation is 
-    applied to refine the binary mask.
+    applied.
 
     Args:
         output (tuple of torch.Tensor): Tuple of output tensors from the U2Net model, 
@@ -28,7 +28,6 @@ def u2net_postprocess(output, ori_shape, sigmoid_included=True, thresh=0.5, dila
         dilate (bool, optional): If True, applies dilation to the binary mask 
             to enhance the features. Default is False.
         k_size (int, optional): The size of the dilation kernel. Default is 3.
-        iter (int, optional): The number of iterations for dilation. Default is 1.
 
     Returns:
         torch.Tensor: The postprocessed binary mask after applying 
@@ -64,7 +63,7 @@ Keys:
 """
 
 MTSD = dict(
-    weights = "weights/u2netp_MTSD.pt",
+    weights = "/SegTrackDetect/weights/u2netp_MTSD.pt",
     in_size = (576,576),
     preprocess = estimator_preprocess,
     preprocess_args = dict(
@@ -77,7 +76,6 @@ MTSD = dict(
         sigmoid_included = True,
         dilate = False, 
         k_size = 7,
-        iter = 1
     ),
 )
     

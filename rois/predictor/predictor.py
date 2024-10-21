@@ -1,8 +1,4 @@
 import importlib
-import os
-import time
-
-from statistics import mean
 
 import torch
 import cv2
@@ -24,9 +20,6 @@ class Predictor:
         config (dict): The configuration dictionary for the selected tracker.
         tracker (object): An instance of the tracker class initialized with the provided arguments.
         frame_delay (int): The frame delay for the tracker.
-        prediction_times (list): A list to store the time taken for predictions.
-        update_times (list): A list to store the time taken for tracker updates.
-        mask_creation_times (list): A list to store the time taken to create masks.
 
     Args:
         tracker_name (str): The name of the tracker to be used. This must be a key in 
@@ -41,10 +34,6 @@ class Predictor:
         trk_class = getattr(importlib.import_module(self.config['module_name']), self.config['class_name'])
         self.tracker = tracker = (trk_class)(**self.config['args'])
         self.frame_delay = self.config['frame_delay']
-
-        self.prediction_times = []
-        self.update_times = []
-        self.mask_creation_times = []
 
 
     def get_predicted_roi(self, frame_id, orig_shape, estim_shape):
@@ -63,16 +52,11 @@ class Predictor:
         Returns:
             torch.Tensor: A binary mask with the predicted regions marked as 1.
         """
-        t1 = time.time()
         self.predicted_bboxes = self.tracker.get_pred_locations()
         predicted_bboxes = torch.tensor(self.predicted_bboxes)
-        self.prediction_times.append(time.time()-t1)
 
-        t2 = time.time()
         H_orig, W_orig = orig_shape
         H_est, W_est = estim_shape
-
-
         predicted_mask = torch.zeros((H_est, W_est), dtype=torch.float)
         if frame_id >= self.frame_delay:
 
@@ -94,8 +78,6 @@ class Predictor:
             for xmin, ymin, xmax, ymax in mot_bboxes.int():
                 predicted_mask[ymin:ymax+1, xmin:xmax+1] = 1
 
-        self.mask_creation_times.append(time.time() - t2)
-
         return predicted_mask
 
 
@@ -110,22 +92,4 @@ class Predictor:
             detections_array (torch.Tensor): A tensor containing the new detections 
                 to be processed by the tracker.
         """
-        t1 = time.time()
         self.tracker.update(detections_array, self.predicted_bboxes)
-        self.update_times.append(time.time()-t1)
-
-
-    def get_execution_times(self, num_images):
-        """
-        Retrieve the average execution times for predictions, mask creation, and updates.
-
-        Args:
-            num_images (int): The number of images processed for averaging the execution times.
-
-        Returns:
-            tuple: A tuple containing the average prediction time, average mask creation time, 
-            and average update time.
-        """
-        return (sum(self.prediction_times)/num_images, 
-                sum(self.mask_creation_times)/num_images, 
-                sum(self.update_times)/num_images)

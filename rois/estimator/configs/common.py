@@ -4,9 +4,8 @@ from torchvision import transforms as T
 
 def estimator_preprocess(h, w):
     """
-    Creates a transformation pipeline for image preprocessing for the estimator.
-    This function composes a series of transformations to resize the image 
-    to the specified height and width and normalize the pixel values.
+    Creates a transformation pipeline for image preprocessing for the 
+    UNet and U2Net Estimation models.
 
     Args:
         h (int): The desired height of the output image after resizing.
@@ -14,7 +13,7 @@ def estimator_preprocess(h, w):
 
     Returns:
         torchvision.transforms.Compose: A composed transform that includes resizing 
-        and normalization steps.
+        and normalization.
     """
     transform = T.Compose([
         T.Resize((h, w), antialias=True),

@@ -1,8 +1,5 @@
 import os
 import torch
-import time
-
-from statistics import mean
 
 from .configs import DETECTION_MODELS
 from .aggregation import rot90points, scale_coords
@@ -11,26 +8,19 @@ from .aggregation import rot90points, scale_coords
 class Detector:
     """A class for loading a detection model and performing object detection.
 
-    Args:
-        model_name (str): Name of the detection model to be loaded.
-        device (str): Device to run the model on, default is 'cuda'.
-
     Attributes:
-        config (dict): Configuration settings for the model.
+        config (dict): Configuration settings for the model, including weights, input size, preprocessing, and postprocessing methods.
         net (torch.jit.ScriptModule): Loaded detection model.
-        input_size (tuple): Size of the input image for the model.
-        conf_thresh (float): Confidence threshold for detections.
-        iou_thresh (float): Intersection over Union threshold for NMS.
-        multi_label (bool): Indicates if multi-label detection is enabled.
-        labels (list): List of class labels.
-        merge (bool): Indicates if detections should be merged.
-        agnostic (bool): Indicates if class agnostic NMS is used.
+        device (str): Device being used ('cuda' or 'cpu'). Default is 'cuda'.
+        input_size (tuple): Size of the input image expected by the model.
         preprocess (callable): Preprocessing function for input images.
+        preprocess_args (dict): Additional arguments for the preprocessing function.
         postprocess (callable): Postprocessing function for model outputs.
-        device (str): Device being used ('cuda' or 'cpu').
-        inference_times (list): List to store inference times.
-        postprocess_times (list): List to store postprocessing times.
-        postprocess_to_orig_times (list): List to store time taken to translate detections back to original image.
+        postprocess_args (dict): Additional arguments for the postprocessing function.
+
+    Args:
+        model_name (str): Name of the detection model to be loaded. Must be a key in the `DETECTION_MODELS` configuration.
+        device (str, optional): Device to run the model on, either 'cuda' or 'cpu'. Default is 'cuda'.
     """
 
     def __init__(self, model_name, device='cuda'):
@@ -41,7 +31,6 @@ class Detector:
         print(f"Loading detector weights: {os.path.basename(weights)}")
         self.net = torch.jit.load(weights)
         self.net.to(device)
-        self.net.eval() # ?
 
         self.input_size = self.config['in_size']
 
@@ -50,11 +39,6 @@ class Detector:
         self.postprocess = self.config['postprocess']
         self.postprocess_args = self.config['postprocess_args']
         self.device = device
-
-
-        self.inference_times = []
-        self.postprocess_times = []
-        self.postprocess_to_orig_times = []
 
 
     @torch.no_grad()
@@ -67,14 +51,9 @@ class Detector:
         Returns:
             list: List of detections for each image in the batch.
         """
-        t1 = time.time()
         img_tensor = self.preprocess(img_tensor, **self.preprocess_args)
         detections = self.net(img_tensor.to(self.device))
-        self.inference_times.append(time.time()-t1)
-
-        t2 = time.time()
         detections = self.postprocess(detections, **self.postprocess_args)
-        self.postprocess_times.append(time.time()-t2)
 
         return detections
 
@@ -101,7 +80,6 @@ class Detector:
                 - img_det (torch.Tensor): Tensor containing the processed detection results.
                 - img_win (torch.Tensor): Tensor containing the bounding box windows for detections.
         """
-        t1 = time.time()
 
         img_det_list = []
         img_win_list = []
@@ -149,20 +127,5 @@ class Detector:
             img_det = torch.empty((0,6), device=self.device)
             img_win = torch.empty((0,4), device=self.device)
 
-
-        self.postprocess_to_orig_times.append(time.time()-t1)
-
         
         return img_det, img_win
-
-
-    def get_execution_times(self, num_images):
-        """Calculate average execution times for inference, postprocessing, and postprocessing to original.
-
-        Args:
-            num_images (int): Number of images processed.
-
-        Returns:
-            tuple: Average execution times for inference, postprocessing, and postprocessing to original.
-        """
-        return sum(self.inference_times)/num_images, sum(self.postprocess_times)/num_images, sum(self.postprocess_to_orig_times)/num_images

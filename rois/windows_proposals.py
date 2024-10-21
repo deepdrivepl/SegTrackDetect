@@ -59,7 +59,7 @@ def get_roi_bounding_boxes(binary_mask, original_shape, current_shape):
 
 
 def rotate(bbox_roi, det_shape):
-    """Checks if an ROI needs to be rotated to fit the detection window.
+    """Checks if an ROI needs to be rotated after cropping to fit the orientation of the detection window.
 
     Args:
         bbox_roi (list): Bounding box for the ROI [xmin, ymin, xmax, ymax].
@@ -197,7 +197,7 @@ def get_detection_windows(rois, img_shape, det_shape=(960, 960), bbox_type='naiv
         allow_resize (bool, optional): Whether to allow resizing of detection windows. Defaults to True.
 
     Returns:
-        np.ndarray: Array of detection windows.
+        np.ndarray: Array of detection windows with shape (N, 4) where each window is defined as (xmin, ymin, xmax, ymax).
     """
     crop_windows, full_windows = [], []
     for roi in rois:

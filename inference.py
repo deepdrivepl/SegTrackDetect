@@ -39,7 +39,7 @@ if __name__ == '__main__':
     parser.add_argument('--name', type=str, help='Name for img list provided in flist.txt')
 
     # ROI
-    parser.add_argument('--bbox_type', type=str, default='sorted', choices=['all', 'naive', 'sorted'], help='Type of detection bounding boxes filtering method.') # TODO one fixed method
+    parser.add_argument('--bbox_type', type=str, default='sorted', choices=['all', 'naive', 'sorted'], help='Type of detection bounding boxes filtering method.')
     parser.add_argument('--allow_resize', default=False, action='store_true', help='Allow resizing of detection sub-windows.')
     
     # general
@@ -96,7 +96,6 @@ if __name__ == '__main__':
     # Inference
     annotations = []
     all_images = 0
-    total_times = []
 
     times = defaultdict(list)
 
@@ -178,7 +177,6 @@ if __name__ == '__main__':
                 end_batch = time.time()
                 times['save_dets'].append(time.time()-t1)
                 times['total'].append(end_batch-start_batch)
-        # break
 
     times = {k: sum(v)/all_images for k,v in times.items()}
     times['fps'] = 1/times['total']

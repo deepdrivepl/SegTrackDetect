@@ -14,9 +14,6 @@ def yolo_preprocess(input_tensor, **kwargs):
     """
     Preprocesses the input tensor for YOLO model input.
 
-    This function accepts an input tensor and performs preprocessing
-    steps required before passing the tensor into a YOLO model. 
-
     Args:
         input_tensor (torch.Tensor): The input tensor [B,C,H,W] representing the image or data to preprocess. 
         **kwargs: Additional keyword arguments for preprocessing options.
@@ -56,7 +53,7 @@ def box_iou(box1, box2):
     inter = (torch.min(box1[:, None, 2:], box2[:, 2:]) - 
              torch.max(box1[:, None, :2], box2[:, :2])).clamp(0).prod(2)
 
-    return inter / (area1[:, None] + area2 - inter)  # iou = inter / (area1 + area2 - inter)
+    return inter / (area1[:, None] + area2 - inter)  
 
 
 
