@@ -15,5 +15,5 @@ echo ""
 
 echo "MTSD"
 /SegTrackDetect/scripts/download_MTSD.sh
-python /SegTrackDetect/scripts/converters/MTSD.py
+#python /SegTrackDetect/scripts/converters/MTSD.py
 echo ""
