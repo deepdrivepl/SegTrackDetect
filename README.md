@@ -8,137 +8,11 @@ See the following sections for more details on the framework, its components, an
 - [SegTrackDetect Architecural Design](#architecture)
 - [ROI Fusion Module](#roi-fusion-module)
 - [Object Detection Module](#object-detection)
-- [Detection Aggregation and Filtering](#detection-aggregation-and-filtering).
+- [Detection Aggregation and Filtering](#detection-aggregation-and-filtering)
+- [Customization](#customization).
 
 To get started with the framework right away, head to the [Getting Started](#getting-started) section.
 
-
-
-# Getting Started
-
-## Depencencies
-To simplify the setup process, we provide a Dockerfile that manages all necessary dependencies for you. Follow these steps to get started:
-1. **Install Docker:** Begin by installing the [Docker Engine](https://docs.docker.com/engine/install/)
-2. **Install NVIDIA Container Toolkit:** If you plan to run detection on a GPU, make sure to install the [NVIDIA Container Toolkit](https://docs.docker.com/engine/install/)
-
-Once you have Docker set up, you can download all the trained models listed in the [Model ZOO](#model-zoo) and build the Docker image by running the following command:
-```bash
-./build_and_run.sh
-```
-
-We currently support four [datasets](#datasets), and we provide scripts to download and convert them into a compatible format. To download and convert all datasets at once, execute:
-```bash
-./scripts/download_and_convert.sh
-```
-If you prefer to download specific datasets, you can run the corresponding scripts located in the [`scripts`](scripts/) directory. 
-
-⚠️  For the MTSD dataset, please visit the [official dataset page](https://www.mapillary.com/dataset/trafficsign) to download the data manually. For details on the required directory structure, refer to [this script](https://github.com/deepdrivepl/SegTrackDetect/blob/main/scripts/download_MTSD.sh). After downloading the dataset and the [older annotation version](https://github.com/deepdrivepl/SegTrackDetect/releases/download/v0.1/annotations_v1.zip), you will need to convert it to the framework format using:
-```bash
-python /SegTrackDetect/scripts/converters/MTSD.py
-```
-
-
-## Examples
-The SegTrackDetect framework enables robust tiny object detection both across consecutive video frames (video mode) and within independent detection windows. The dataset type is automatically inferred from the dataset directory structure. For more information, see [datasets](#new-datasets).
-
-To perform detection on video data using a supported dataset like `SeaDronesSee`, run the following command:
-```bash
-python inference.py \
---roi_model 'SDS_large' --det_model 'SDS' --tracker 'sort' \
---data_root '/SegTrackDetect/data/SeaDronesSee' --split 'val' \
---bbox_type 'sorted' --allow_resize --obs_iou_th 0.1 \
---out_dir 'results/SDS/val' --debug
-```
-
-To detect objects in independent windows, for instance, using the `MTSD` dataset, you can use the same script with slight modifications:
-```bash
-python inference.py \
---roi_model 'MTSD' --det_model 'MTSD' \
---data_root '/SegTrackDetect/data/MTSD' --split 'val'  \
---bbox_type 'sorted' --allow_resize --obs_iou_th 0.7 \
---out_dir 'results/MTSD/val' --debug
-```
-
-The following table outlines the command-line arguments that can be used when running the inference script. These arguments allow you to customize the behavior of the detection process by specifying models, datasets, and various configurations.
-
-| Argument          | Type      | Description                                                                                                                                 |
-|:-------------------:|-----------|---------------------------------------------------------------------------------------------------------------------------------------------|
-| `--roi_model`     | `str`     | Specifies the ROI model to use (e.g., `SDS_large`). All available ROI models are defined [here](rois/estimator/configs/__init__.py)         |
-| `--det_model`     | `str`     | Specifies the detection model to use (e.g., `SDS`). All available detectors are defined [here](detector/configs/__init__.py)                |
-| `--tracker`       | `str`     | Specifies the tracker to use (e.g., `sort`). All available trackers are defined [here](rois/predictor/configs/__init__.py)                  |
-| `--data_root`     | `str`     | Path to the dataset directory (e.g., `/SegTrackDetect/data/MTSD`                                                                            |
-| `--split`         | `str`     | Data split to use (e.g., `val` for validation). If present, the script will save the detections using the coco image ids used in `val.json` |
-| `--flist`         | `str`     | An alternative version of providing an image list, path to the file with absolute paths to images.                                          |
-| `--name`          | `str`     | A name for provided `flist`, coco annotations `name.json` will be generated and saved in the dataset root directory                         |
-| `--bbox_type`     | `str`     | Type of the detection window filtering algorithm (`all` - no filtering, `naive`, `sorted`).                                                 |
-| `--allow_resize`  | `flag`    | Enables resizing of cropped detection windows. Siling window within large ROIs will be used otherwise.                                      |
-| `--obs_iou_th`    | `float`   | Sets the IoU threshold for Overlapping Box Suppresion (default is 0.7).                                                                     |
-| `--cpu`           | `flag`    | Use `cpu` for computations, if not set use `cuda`                                                                                           |
-| `--out_dir`       | `str`     | Directory to save output results (e.g., `results/SDS/val`).                                                                                 |
-| `--debug`         | `flag`    | Enables saving visualisation in `out_dir`                                                                                                   |
-| `--vis_conf_th`   | `float`   | Confidence threshold for the detections in visualisation, default 0.3.                                                                      |
-
-
-All available models can be found in [Model ZOO](#model-zoo). Currently, we provide trained models for 4 detection tasks. 
-
-## Customization
-### Existing Models
-You can easily customize the behavior of existing models in the SegTrackDetect framework. This includes modifying post-processing functions or adjusting parameters such as thresholds and dilations. To do this, locate the configuration dictionaries for the models you wish to customize in the respective configuration directories. For instance, you can find the configurations for ROI estimation models in the [estimator configs](rois/estimator/configs/) directory, for ROI prediction models in the [predictor configs](rois/predictor/configs/), and for object detectors in the [detectors config](https://github.com/deepdrivepl/SegTrackDetect/blob/main/detector/configs/yolo.py) directory.
-
-
-### New Models
-To add new models to the framework, you will need to create a configuration dictionary for your model. Place this configuration in the appropriate directory (e.g., [estimator configs](rois/estimator/configs/) for ROI estimation models, [predictor configs](rois/predictor/configs/) for ROI predictors or [detectors configs](detector/configs) for object detectors). After defining your model and its configuration, register the new model in the relevant ESTIMATOR_MODELS, PREDICTOR_MODELS or DETECTION_MODELS in the __init__.py file to enable its use in main scripts.
-
-By following these steps, you can seamlessly integrate custom models into the SegTrackDetect framework, enhancing its capabilities to meet your specific needs.
-
-For more details on integrating new trackers into ROI Prediction module see [this](#roi-prediction-with-object-trackers) section.
-
-
-### New Datasets
-You can use any dataset that adheres to the specified directory structure for video data. The required structure for organizing videos in the SegTrackDetect framework is as follows:
-```bash
-SegTrackDetect/data/YourVideoDataset/
-├── images
-│   ├── seq1               # Sequence 1 with A images
-│   ├── seq2               # Sequence 2 with B images
-│   ├── seq3               # Sequence 3 with C images
-│   ├── seq4               # Sequence 4 with D images
-│   └── ...                # Additional sequences as needed
-├── split_x.json           # Annotations in COCO format
-├── split_y.json           # Annotations in COCO format
-└── split_z.json           # Annotations in COCO format
-```
-Each sequence (e.g., `seq1`, `seq2`, etc.) should contain its respective images. 
-
-
-You can use any dataset that follows the specified directory structure for image data. The required structure for organizing images in the SegTrackDetect framework is as follows:
-```bash
-SegTrackDetect/data/YourImageDataset/
-├── images                # All images should be placed directly in this directory
-│   ├── image1.jpg       # Image file 1
-│   ├── image2.jpg       # Image file 2
-│   ├── image3.png       # Image file 3
-│   └── ...              # Additional image files as needed
-├── split_x.json         # Annotations in COCO format
-├── split_y.json         # Annotations in COCO format
-└── split_z.json         # Annotations in COCO format
-```
-All image files (e.g., `image1.jpg`, `image2.jpg`, etc.) should be placed directly in the `images` directory. 
-
-The annotations.json files should contain the annotations for the respective splits. Please ensure that the file_name entries in the annotations point to absolute paths for proper integration.
-Once your dataset is structured correctly, you can integrate it into the framework, allowing you to run inference and perform other operations on your video data. 
-
-
-## Metrics
-To assess the performance of the SegTrackDetect framework, we use a customized COCO metrics implementation designed for tiny objects, available in the [tinycocoapi](https://github.com/Cufix/tinycocoapi) repository. 
-
-A dedicated script is provided to compute evaluation metrics, comparing predicted detections with ground truth annotations. The inference script ensures proper indexing of images.
-
-To run the metrics computation script, use the following command:
-```bash
-python metrics.py --dir <directory_with_detections> --gt_path <path_to_ground_truth_json> --th <score_threshold> --csv <path_to_save_metrics>
-```
-This will generate the evaluation metrics and save them in the specified CSV file for further analysis.
 
 
 # Architecture
@@ -232,6 +106,134 @@ New models can be registered similarly to the ROI Estimation Models: create a ne
 Finally, detections from all sub-windows are aggregated and filtered using the Overlapping Box Suppression (OBS) Algorithm. OBS leverages the sub-window coordinates to eliminate partial detections that arise from overlapping detection sub-windows. You can customize the IoU threshold for OBS using the `--obs_iou_th argument` in the main scripts. For more detailed information on OBS, please refer to the [documentation](detector/obs.py).
 
 
+# Getting Started
+
+## Depencencies
+To simplify the setup process, we provide a Dockerfile that manages all necessary dependencies for you. Follow these steps to get started:
+1. **Install Docker:** Begin by installing the [Docker Engine](https://docs.docker.com/engine/install/)
+2. **Install NVIDIA Container Toolkit:** If you plan to run detection on a GPU, make sure to install the [NVIDIA Container Toolkit](https://docs.docker.com/engine/install/)
+
+Once you have Docker set up, you can download all the trained models listed in the [Model ZOO](#model-zoo) and build the Docker image by running the following command:
+```bash
+./build_and_run.sh
+```
+
+We currently support four [datasets](#datasets), and we provide scripts to download and convert them into a compatible format. To download and convert all datasets at once, execute:
+```bash
+./scripts/download_and_convert.sh
+```
+If you prefer to download specific datasets, you can run the corresponding scripts located in the [`scripts`](scripts/) directory. 
+
+⚠️  For the MTSD dataset, please visit the [official dataset page](https://www.mapillary.com/dataset/trafficsign) to download the data manually. For details on the required directory structure, refer to [this script](https://github.com/deepdrivepl/SegTrackDetect/blob/main/scripts/download_MTSD.sh). After downloading the dataset and the [older annotation version](https://github.com/deepdrivepl/SegTrackDetect/releases/download/v0.1/annotations_v1.zip), you will need to convert it to the framework format using:
+```bash
+python /SegTrackDetect/scripts/converters/MTSD.py
+```
+
+
+## Examples
+The SegTrackDetect framework enables robust tiny object detection both across consecutive video frames (video mode) and within independent detection windows. The dataset type is automatically inferred from the dataset directory structure. For more information, see [datasets](#new-datasets).
+
+To perform detection on video data using a supported dataset like `SeaDronesSee`, run the following command:
+```bash
+python inference.py \
+--roi_model 'SDS_large' --det_model 'SDS' --tracker 'sort' \
+--data_root '/SegTrackDetect/data/SeaDronesSee' --split 'val' \
+--bbox_type 'sorted' --allow_resize --obs_iou_th 0.1 \
+--out_dir 'results/SDS/val' --debug
+```
+
+To detect objects in independent windows, for instance, using the `MTSD` dataset, you can use the same script with slight modifications:
+```bash
+python inference.py \
+--roi_model 'MTSD' --det_model 'MTSD' \
+--data_root '/SegTrackDetect/data/MTSD' --split 'val'  \
+--bbox_type 'sorted' --allow_resize --obs_iou_th 0.7 \
+--out_dir 'results/MTSD/val' --debug
+```
+
+The following table outlines the command-line arguments that can be used when running the inference script. These arguments allow you to customize the behavior of the detection process by specifying models, datasets, and various configurations.
+
+| Argument          | Type      | Description                                                                                                                                 |
+|:-------------------:|-----------|---------------------------------------------------------------------------------------------------------------------------------------------|
+| `--roi_model`     | `str`     | Specifies the ROI model to use (e.g., `SDS_large`). All available ROI models are defined [here](rois/estimator/configs/__init__.py)         |
+| `--det_model`     | `str`     | Specifies the detection model to use (e.g., `SDS`). All available detectors are defined [here](detector/configs/__init__.py)                |
+| `--tracker`       | `str`     | Specifies the tracker to use (e.g., `sort`). All available trackers are defined [here](rois/predictor/configs/__init__.py)                  |
+| `--data_root`     | `str`     | Path to the dataset directory (e.g., `/SegTrackDetect/data/MTSD`                                                                            |
+| `--split`         | `str`     | Data split to use (e.g., `val` for validation). If present, the script will save the detections using the coco image ids used in `val.json` |
+| `--flist`         | `str`     | An alternative version of providing an image list, path to the file with absolute paths to images.                                          |
+| `--name`          | `str`     | A name for provided `flist`, coco annotations `name.json` will be generated and saved in the dataset root directory                         |
+| `--bbox_type`     | `str`     | Type of the detection window filtering algorithm (`all` - no filtering, `naive`, `sorted`).                                                 |
+| `--allow_resize`  | `flag`    | Enables resizing of cropped detection windows. Siling window within large ROIs will be used otherwise.                                      |
+| `--obs_iou_th`    | `float`   | Sets the IoU threshold for Overlapping Box Suppresion (default is 0.7).                                                                     |
+| `--cpu`           | `flag`    | Use `cpu` for computations, if not set use `cuda`                                                                                           |
+| `--out_dir`       | `str`     | Directory to save output results (e.g., `results/SDS/val`).                                                                                 |
+| `--debug`         | `flag`    | Enables saving visualisation in `out_dir`                                                                                                   |
+| `--vis_conf_th`   | `float`   | Confidence threshold for the detections in visualisation, default 0.3.                                                                      |
+
+
+All available models can be found in [Model ZOO](#model-zoo). Currently, we provide trained models for 4 detection tasks. 
+
+
+## Customization
+### Existing Models
+You can easily customize the behavior of existing models in the SegTrackDetect framework. This includes modifying post-processing functions or adjusting parameters such as thresholds and dilations. To do this, locate the configuration dictionaries for the models you wish to customize in the respective configuration directories. For instance, you can find the configurations for ROI estimation models in the [estimator configs](rois/estimator/configs/) directory, for ROI prediction models in the [predictor configs](rois/predictor/configs/), and for object detectors in the [detectors config](https://github.com/deepdrivepl/SegTrackDetect/blob/main/detector/configs/yolo.py) directory.
+
+
+### New Models
+To add new models to the framework, you will need to create a configuration dictionary for your model. Place this configuration in the appropriate directory (e.g., [estimator configs](rois/estimator/configs/) for ROI estimation models, [predictor configs](rois/predictor/configs/) for ROI predictors or [detectors configs](detector/configs) for object detectors). After defining your model and its configuration, register the new model in the relevant ESTIMATOR_MODELS, PREDICTOR_MODELS or DETECTION_MODELS in the __init__.py file to enable its use in main scripts.
+
+By following these steps, you can seamlessly integrate custom models into the SegTrackDetect framework, enhancing its capabilities to meet your specific needs.
+
+For more details on integrating new trackers into ROI Prediction module see [this](#roi-prediction-with-object-trackers) section.
+
+
+### New Datasets
+You can use any dataset that adheres to the specified directory structure for video data. The required structure for organizing videos in the SegTrackDetect framework is as follows:
+```bash
+SegTrackDetect/data/YourVideoDataset/
+├── images
+│   ├── seq1               # Sequence 1 with A images
+│   ├── seq2               # Sequence 2 with B images
+│   ├── seq3               # Sequence 3 with C images
+│   ├── seq4               # Sequence 4 with D images
+│   └── ...                # Additional sequences as needed
+├── split_x.json           # Annotations in COCO format
+├── split_y.json           # Annotations in COCO format
+└── split_z.json           # Annotations in COCO format
+```
+Each sequence (e.g., `seq1`, `seq2`, etc.) should contain its respective images. 
+
+
+You can use any dataset that follows the specified directory structure for image data. The required structure for organizing images in the SegTrackDetect framework is as follows:
+```bash
+SegTrackDetect/data/YourImageDataset/
+├── images                # All images should be placed directly in this directory
+│   ├── image1.jpg       # Image file 1
+│   ├── image2.jpg       # Image file 2
+│   ├── image3.png       # Image file 3
+│   └── ...              # Additional image files as needed
+├── split_x.json         # Annotations in COCO format
+├── split_y.json         # Annotations in COCO format
+└── split_z.json         # Annotations in COCO format
+```
+All image files (e.g., `image1.jpg`, `image2.jpg`, etc.) should be placed directly in the `images` directory. 
+
+The annotations.json files should contain the annotations for the respective splits. Please ensure that the file_name entries in the annotations point to absolute paths for proper integration.
+Once your dataset is structured correctly, you can integrate it into the framework, allowing you to run inference and perform other operations on your video data. 
+
+
+## Metrics
+To assess the performance of the SegTrackDetect framework, we use a customized COCO metrics implementation designed for tiny objects, available in the [tinycocoapi](https://github.com/Cufix/tinycocoapi) repository. 
+
+A dedicated script is provided to compute evaluation metrics, comparing predicted detections with ground truth annotations. The inference script ensures proper indexing of images.
+
+To run the metrics computation script, use the following command:
+```bash
+python metrics.py --dir <directory_with_detections> --gt_path <path_to_ground_truth_json> --th <score_threshold> --csv <path_to_save_metrics>
+```
+This will generate the evaluation metrics and save them in the specified CSV file for further analysis.
+
+
 
 # Model ZOO
 
@@ -263,7 +265,7 @@ In the SegTrackDetect framework, we utilize a range of pre-trained models for bo
 
 
 # Datasets
-The SegTrackDetect framework supports a variety of datasets tailored for different object detection tasks. Each dataset is accompanied by specific models designed to optimize performance in their respective domains. Below is a list of the supported datasets, along with suitable ROI and detection models that can be utilized for inference. These datasets encompass a range of scenarios, from traffic sign recognition to maritime object detection, enabling comprehensive evaluation and testing of the framework's capabilities.
+The SegTrackDetect framework supports a variety of datasets tailored for different object detection tasks. Each dataset is accompanied by specific models designed to optimize performance in their respective domains. Below is a list of the supported datasets, along with suitable ROI and detection models that can be utilized for inference. These datasets encompass a range of scenarios, from traffic sign detection to maritime object detection, enabling comprehensive evaluation and testing of the framework's capabilities.
 
 Supported Datasets:
 - Mapillary Traffic Sign Dataset 🚥
@@ -271,10 +273,11 @@ Supported Datasets:
 - DroneCrowd 🚁
 - SeaDronesSee 🌊
 
+
 # Licence
 
 The code in this repository is licensed under the [MIT License](LICENSE).<br /> 
-For third-party submodules, such as the [SORT tracker](https://github.com/deepdrivepl/SORT), please refer to their respective licenses.<br /> 
+For third-party submodules, such as the [SORT tracker](https://github.com/abewley/sort), please refer to their respective licenses.<br /> 
 All trained models are distributed under licenses that comply with the terms of the datasets they were trained on.
 
 
