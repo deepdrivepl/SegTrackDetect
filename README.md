@@ -130,7 +130,9 @@ Once your dataset is structured correctly, you can integrate it into the framewo
 
 
 ## Metrics
-To assess the performance of the SegTrackDetect framework, we convert all datasets into the COCO format and provide a dedicated script for computing evaluation metrics. This script effectively compares the predicted detections with the ground truth annotations, ensuring accuracy in performance measurement. Additionally, the inference scripts guarantee proper indexing of images when a dataset split is specified.
+To assess the performance of the SegTrackDetect framework, we use a customized COCO metrics implementation designed for tiny objects, available in the [tinycocoapi](https://github.com/Cufix/tinycocoapi) repository. 
+
+A dedicated script is provided to compute evaluation metrics, comparing predicted detections with ground truth annotations. The inference script ensures proper indexing of images.
 
 To run the metrics computation script, use the following command:
 ```bash
