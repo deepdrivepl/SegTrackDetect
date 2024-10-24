@@ -158,7 +158,7 @@ The following table outlines the command-line arguments that can be used when ru
 | `--roi_model`     | `str`     | Specifies the ROI model to use (e.g., `SDS_large`). All available ROI models are defined [here](rois/estimator/configs/__init__.py)         |
 | `--det_model`     | `str`     | Specifies the detection model to use (e.g., `SDS`). All available detectors are defined [here](detector/configs/__init__.py)                |
 | `--tracker`       | `str`     | Specifies the tracker to use (e.g., `sort`). All available trackers are defined [here](rois/predictor/configs/__init__.py)                  |
-| `--data_root`     | `str`     | Path to the dataset directory (e.g., `/SegTrackDetect/data/MTSD`                                                                            |
+| `--data_root`     | `str`     | Path to the dataset directory (e.g., `/SegTrackDetect/data/MTSD`)                                                                            |
 | `--split`         | `str`     | Data split to use (e.g., `val` for validation). If present, the script will save the detections using the coco image ids used in `val.json` |
 | `--flist`         | `str`     | An alternative version of providing an image list, path to the file with absolute paths to images.                                          |
 | `--name`          | `str`     | A name for provided `flist`, coco annotations `name.json` will be generated and saved in the dataset root directory                         |
@@ -174,20 +174,175 @@ The following table outlines the command-line arguments that can be used when ru
 All available models can be found in [Model ZOO](#model-zoo). Currently, we provide trained models for 4 detection tasks. 
 
 
-## Customization
-### Existing Models
+## Metrics
+To assess the performance of the SegTrackDetect framework, we use a customized COCO metrics implementation designed for tiny objects, available in the [tinycocoapi](https://github.com/Cufix/tinycocoapi) repository. 
+
+A dedicated script is provided to compute evaluation metrics, comparing predicted detections with ground truth annotations. The inference script ensures proper indexing of images.
+
+To run the metrics computation script, use the following command:
+```bash
+python metrics.py --dir <directory_with_detections> --gt_path <path_to_ground_truth_json> --th <score_threshold> --csv <path_to_save_metrics>
+```
+This will generate the evaluation metrics and save them in the specified CSV file for further analysis.
+
+
+# Customization
+## Existing Models
 You can easily customize the behavior of existing models in the SegTrackDetect framework. This includes modifying post-processing functions or adjusting parameters such as thresholds and dilations. To do this, locate the configuration dictionaries for the models you wish to customize in the respective configuration directories. For instance, you can find the configurations for ROI estimation models in the [estimator configs](rois/estimator/configs/) directory, for ROI prediction models in the [predictor configs](rois/predictor/configs/), and for object detectors in the [detectors config](https://github.com/deepdrivepl/SegTrackDetect/blob/main/detector/configs/yolo.py) directory.
 
 
-### New Models
+## New Models
 To add new models to the framework, you will need to create a configuration dictionary for your model. Place this configuration in the appropriate directory (e.g., [estimator configs](rois/estimator/configs/) for ROI estimation models, [predictor configs](rois/predictor/configs/) for ROI predictors or [detectors configs](detector/configs) for object detectors). After defining your model and its configuration, register the new model in the relevant ESTIMATOR_MODELS, PREDICTOR_MODELS or DETECTION_MODELS in the __init__.py file to enable its use in main scripts.
 
 By following these steps, you can seamlessly integrate custom models into the SegTrackDetect framework, enhancing its capabilities to meet your specific needs.
 
-For more details on integrating new trackers into ROI Prediction module see [this](#roi-prediction-with-object-trackers) section.
+
+### Object Detection Module
+
+The configuration dictionary for the detection models is structured as follows:
+
+```python
+CustomModel = dict(
+    weights = '/SegTrackDetect/weights/my_custom_model_weights.pt',
+    in_size = (h,w),
+    preprocess = preprocess_function,
+    preprocess_args = dict(),
+    postprocess = postprocess_function,
+    postprocess_args = dict(),
+    classes = ['class_a', 'class_b', 'class_c', ...],
+    colors = [(255, 0, 0), (0, 255, 0), (0, 0, 255), ...]
+)
+```
+
+The pre-process and post-process functions are defined using the following snippets:
+
+```python
+def preprocess_function(input_tensor, **preprocess_args):
+    """
+    Pre-processes the input tensor for the detection model
+
+    Args:
+        input_tensor (torch.Tensor): The input tensor [B,C,H,W] representing the image batch to preprocess. 
+        **preprocess_args: Additional keyword arguments.
+
+    Returns:
+        torch.Tensor: The modified tensor in format required by the detection model.
+    """
+    return input_tensor
 
 
-### New Datasets
+def postprocess_function(output, **postprocess_args):
+    """
+    Post-process the detection model output.
+
+    Args:
+        output (torch.Tensor): The output tensor from the detection model.
+        **postprocess_args: Additional keyword arguments.
+            
+    Returns:
+        List[Tensor]: List of detections, where each detection is a (n,6) tensor per image [xmin,ymin,xmax,ymax,score,class_id].
+    """
+    return output
+```
+
+### ROI Estimation Module
+
+The configuration dictionary for the ROI Estimation Module is structured as follows:
+
+```python
+CustomModel = dict(
+    weights = 'weights/my_custom_model_weights.pt',
+    in_size = (h,w),
+    postprocess = postprocess_function,
+    postprocess_args = dict(),
+    preprocess = preprocess_function,
+    preprocess_args = dict()
+)
+```
+And the processing functions are defined using the following snippets:
+
+```python
+def preprocess_function(input_tensor, **preprocess_args):
+    """
+    Pre-processes the input tensor for the estimation model
+
+    Args:
+        input_tensor (torch.Tensor): The input tensor [B,C,H,W] representing the image batch to preprocess. 
+        **preprocess_args: Additional keyword arguments.
+
+    Returns:
+        torch.Tensor: The modified tensor in format required by the ROI estimation model.
+    """
+    return input_tensor
+    
+def postprocess_function(output, **postprocess_args):
+    """
+    Postprocesses the output of the ROI estimation model to generate a binary mask.
+
+    Args:
+        output (torch.Tensor): The output tensor from the estimation model.
+        **postprocess_args: Additional keyword arguments.
+
+    Returns:
+        torch.Tensor: The binary mask [H,W].
+    """
+    return output
+```
+
+### ROI Prediction Module
+
+The framework currently integrates the [SORT](https://github.com/deepdrivepl/SORT) tracker from a forked repository, enabling efficient ROI prediction in video mode. However, it is designed to be adaptable, allowing users to incorporate any object tracker, as long as the tracker's prediction and update functions are modular and separate. Below is a template that users can use to adapt any tracker for ROI Prediction:
+
+```python
+class CustomTracker:
+    """
+    Template for a custom object tracker class designed to handle both prediction and update steps separately.
+    """
+
+    def __init__(self, *args, **kwargs):
+        """
+        Initialize CustomTracker with arguments required by your tracker.
+        """
+
+    def get_pred_locations(self):
+        """
+        Predicts locations of the trackers in the current frame. This function should retrieve and predict the positions of existing trackers.
+        
+        Returns:
+            np.ndarray: A numpy array of predicted bounding boxes in the format [[x1, y1, x2, y2, score], ...].
+        """
+
+    def update(self, dets=np.empty((0, 5)), trks=[]):
+        """
+        Updates the tracker's internal state with new detections and predicted tracker locations.
+
+        Args:
+            dets (np.ndarray): A numpy array of detections in the format [[x1, y1, x2, y2, score], ...].
+            trks (np.ndarray): Predicted tracker locations from `get_pred_locations()`.
+
+        Returns:
+            np.ndarray: Updated tracker states in the format [[x1, y1, x2, y2, track_id, score], ...].
+        """  
+```
+
+Once the user has implemented the `CustomTracker` class, it can be integrated into the framework by defining and registering the configuration dictionary, as shown below:
+
+```python
+CustomTracker = dict(
+  module_name = 'rois.predictor.CustomTracker', 
+  class_name = 'CustomTracker',
+  args = dict(),
+  frame_delay = 3,
+)
+
+PREDICTOR_MODELS = {
+   'sort': sort,
+   'custom': CustomTracker,
+}
+```
+
+
+## New Datasets
 You can use any dataset that adheres to the specified directory structure for video data. The required structure for organizing videos in the SegTrackDetect framework is as follows:
 ```bash
 SegTrackDetect/data/YourVideoDataset/
@@ -220,19 +375,6 @@ All image files (e.g., `image1.jpg`, `image2.jpg`, etc.) should be placed direct
 
 The annotations.json files should contain the annotations for the respective splits. Please ensure that the file_name entries in the annotations point to absolute paths for proper integration.
 Once your dataset is structured correctly, you can integrate it into the framework, allowing you to run inference and perform other operations on your video data. 
-
-
-## Metrics
-To assess the performance of the SegTrackDetect framework, we use a customized COCO metrics implementation designed for tiny objects, available in the [tinycocoapi](https://github.com/Cufix/tinycocoapi) repository. 
-
-A dedicated script is provided to compute evaluation metrics, comparing predicted detections with ground truth annotations. The inference script ensures proper indexing of images.
-
-To run the metrics computation script, use the following command:
-```bash
-python metrics.py --dir <directory_with_detections> --gt_path <path_to_ground_truth_json> --th <score_threshold> --csv <path_to_save_metrics>
-```
-This will generate the evaluation metrics and save them in the specified CSV file for further analysis.
-
 
 
 # Model ZOO
