@@ -52,7 +52,7 @@ Finally, detections from all sub-windows are aggregated and filtered using the O
 ## Depencencies
 To simplify the setup process, we provide a Dockerfile that manages all necessary dependencies for you. Follow these steps to get started:
 1. **Install Docker:** Begin by installing the [Docker Engine](https://docs.docker.com/engine/install/)
-2. **Install NVIDIA Container Toolkit:** If you plan to run detection on a GPU, make sure to install the [NVIDIA Container Toolkit](https://docs.docker.com/engine/install/)
+2. **Install NVIDIA Container Toolkit:** If you plan to run detection on a GPU, make sure to install the [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html#installation)
 
 Once you have Docker set up, you can download all the trained models listed in the [Model ZOO](#model-zoo) and build the Docker image by running the following command:
 ```bash
@@ -74,6 +74,7 @@ python /SegTrackDetect/scripts/converters/MTSD.py
 ## Examples
 The SegTrackDetect framework enables robust tiny object detection both across consecutive video frames (video mode) and within independent detection windows. The dataset type is automatically inferred from the dataset directory structure. For more information, see [datasets](#new-datasets).
 
+The main features of the SegTrackDetect framework can be explored by executing the `inference.py` script with varius configurations. 
 To perform detection on video data using a supported dataset like `SeaDronesSee`, run the following command:
 ```bash
 python inference.py \
