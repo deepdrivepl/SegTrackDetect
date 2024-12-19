@@ -174,7 +174,7 @@ def resize_keep_ar(img, new_shape=(640, 640)):
 
     # Normalize to fix AP/AR ml
     resized_img = (resized_img * 255).to(torch.uint8)
-    resized_img = (resized_img / 255.0).to(torch.float32)
+    resized_img = (resized_img / 255.0).to(img.dtype)
 
     return resized_img, (new_unpad[0], new_unpad[1])
 
@@ -221,16 +221,16 @@ class ROIDataset(torch.utils.data.Dataset):
                 - metadata (dict): Metadata dictionary containing image path and COCO metadata.
         """
         image = cv2.imread(self.paths[idx])
+        image = np.ascontiguousarray(image)
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         H,W = image.shape[:2]
 
         metadata = {
             'image_path': os.path.abspath(self.paths[idx]),
             'coco': self.dataset.get_image_metadata(self.paths[idx])
-        }    
-
-        return T.ToTensor()(image), metadata
-
+        }
+        
+        return T.ToTensor()(image).half(), metadata
 
 
 class WindowDetectionDataset():

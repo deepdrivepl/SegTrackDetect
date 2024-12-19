@@ -32,6 +32,9 @@ class Estimator:
         print(f"Loading ROI estimator weights: {os.path.basename(weights)}")
         self.net = torch.jit.load(weights)
         self.net.to(device)
+        
+        dtypes = {param.dtype for param in self.net.parameters()}
+        self.dtype = next(iter(dtypes))
 
         self.input_size = self.config['in_size']
         self.preprocess = self.config['preprocess']
@@ -41,7 +44,7 @@ class Estimator:
         self.device = device
 
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def get_estimated_roi(self, img_tensor, orig_shape):
         """
         Estimates the ROI mask from the input image tensor.
@@ -53,7 +56,7 @@ class Estimator:
         Returns:
             torch.Tensor: The post-processed estimated ROI mask.
         """
-        estimated_mask = self.net(img_tensor.to(self.device))
+        estimated_mask = self.net(img_tensor.to(self.device).to(self.dtype))
         estimated_mask = self.postprocess(
             estimated_mask, 
             orig_shape,

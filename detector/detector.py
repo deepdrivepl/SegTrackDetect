@@ -31,6 +31,8 @@ class Detector:
         print(f"Loading detector weights: {os.path.basename(weights)}")
         self.net = torch.jit.load(weights)
         self.net.to(device)
+        dtypes = {param.dtype for param in self.net.parameters()}
+        self.dtype = next(iter(dtypes))
 
         self.input_size = self.config['in_size']
 
@@ -41,7 +43,7 @@ class Detector:
         self.device = device
 
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def get_detections(self, img_tensor):
         """Perform detection on the input image tensor.
 
@@ -52,7 +54,7 @@ class Detector:
             list: List of detections for each image in the batch.
         """
         img_tensor = self.preprocess(img_tensor, **self.preprocess_args)
-        detections = self.net(img_tensor.to(self.device))
+        detections = self.net(img_tensor.to(self.device).to(self.dtype))
         detections = self.postprocess(detections, **self.postprocess_args)
 
         return detections

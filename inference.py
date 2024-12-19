@@ -106,13 +106,13 @@ if __name__ == '__main__':
         
         dataset = ROIDataset(seq_flist, ds, roi_extractor.estimator.input_size, roi_extractor.estimator.preprocess(**roi_extractor.estimator.preprocess_args))
         all_images += len(dataset)
-        dataloader = DataLoader(dataset, batch_size=1, shuffle=False, num_workers=4, pin_memory=True)
+        dataloader = DataLoader(dataset, batch_size=1, shuffle=False, num_workers=16, pin_memory=True)
 
-        with torch.no_grad():
+        with torch.inference_mode():
             for i, (img, metadata) in tqdm(enumerate(dataloader)):
 
                 start_batch = time.time()
-
+                img = img.to(device)
                 img_roi = dataset.roi_transform(img)
                 original_shape = metadata['coco']['height'].item(), metadata['coco']['width'].item()
 
@@ -128,7 +128,7 @@ if __name__ == '__main__':
                 if len(det_bboxes) > 0:
 
                     t1 = time.time()
-                    det_dataset =  WindowDetectionDataset(img.to(device), ds, det_bboxes, detector.input_size)
+                    det_dataset =  WindowDetectionDataset(img, ds, det_bboxes, detector.input_size)
                     img_det, det_metadata = det_dataset.get_batch()
                     times['det_get_batch'].append(time.time()-t1)
 
