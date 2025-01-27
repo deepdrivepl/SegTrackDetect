@@ -357,6 +357,8 @@ Supported Datasets:
 - DroneCrowd 🚁
 - SeaDronesSee 🌊
 
+Example outputs:
+![ouptputs](docs/images/all-example.png)
 
 # Licence
 
